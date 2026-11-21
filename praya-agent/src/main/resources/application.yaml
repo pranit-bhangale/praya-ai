@@ -1,3 +1,23 @@
+server:
+  port: 8080
+
 spring:
   application:
     name: praya-agent
+
+  threads:
+    virtual:
+      enabled: true
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:demo-key}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.3
+
+praya:
+  cache:
+    answers-eviction-cron: "0 0 */6 * * *"
+    knowledge-refresh-cron: "0 0 0 * * *"
