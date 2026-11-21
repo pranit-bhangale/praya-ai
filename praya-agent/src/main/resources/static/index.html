@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Praya — Pranit's AI Personal Assistant (SSE Test Client)</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --panel-bg: #161b22;
+            --border-color: #30363d;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --accent-color: #58a6ff;
+            --accent-hover: #1f6feb;
+            --user-bubble: #1f6feb;
+            --agent-bubble: #21262d;
+            --tool-started: #d29922;
+            --tool-completed: #238636;
+            --badge-bg: rgba(88, 166, 255, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1f6feb, #a371f7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: #fff;
+        }
+
+        .status-badge {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            background-color: rgba(35, 134, 54, 0.2);
+            color: #3fb950;
+            border: 1px solid rgba(59, 185, 80, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #3fb950;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            max-width: 960px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .quick-prompts {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+
+        .chip {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 6px 12px;
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .chip:hover {
+            border-color: var(--accent-color);
+            color: var(--text-primary);
+            background-color: var(--badge-bg);
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message-row {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+            animation: fadeIn 0.25s ease-in;
+        }
+
+        .message-row.user {
+            align-self: flex-end;
+        }
+
+        .message-row.agent {
+            align-self: flex-start;
+        }
+
+        .bubble {
+            padding: 14px 18px;
+            border-radius: 14px;
+            font-size: 15px;
+            line-height: 1.6;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .message-row.user .bubble {
+            background-color: var(--user-bubble);
+            color: #ffffff;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-row.agent .bubble {
+            background-color: var(--agent-bubble);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            border-bottom-left-radius: 4px;
+        }
+
+        .tools-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .tool-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            width: fit-content;
+            font-family: monospace;
+        }
+
+        .tool-badge.started {
+            background-color: rgba(210, 153, 34, 0.15);
+            color: var(--tool-started);
+            border: 1px solid rgba(210, 153, 34, 0.4);
+        }
+
+        .tool-badge.completed {
+            background-color: rgba(35, 134, 54, 0.15);
+            color: var(--tool-completed);
+            border: 1px solid rgba(35, 134, 54, 0.4);
+        }
+
+        .meta-info {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 16px;
+            background-color: var(--accent-color);
+            margin-left: 2px;
+            vertical-align: text-bottom;
+            animation: blink 0.8s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .input-bar {
+            margin-top: 16px;
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .input-bar input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-primary);
+            font-size: 15px;
+        }
+
+        .input-bar input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        .btn-send {
+            background-color: var(--accent-color);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .btn-send:hover:not(:disabled) {
+            background-color: var(--accent-hover);
+        }
+
+        .btn-send:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-title">
+        <div class="avatar">P</div>
+        <div>
+            <h2>Praya — Personal Assistant</h2>
+            <p style="font-size: 12px; color: var(--text-secondary);">Grounding: pranitbhangale.vercel.app | GitHub | LinkedIn</p>
+        </div>
+    </div>
+    <div class="status-badge">
+        <span class="status-dot"></span>
+        <span id="systemStatus">SSE Engine Ready</span>
+    </div>
+</header>
+
+<main>
+    <div class="quick-prompts">
+        <span class="chip" onclick="fillPrompt('What is Pranit\\'s primary tech stack and skills?')">💻 Tech Stack & Skills</span>
+        <span class="chip" onclick="fillPrompt('Tell me about Pranit\\'s Open-Connect real-time chat engine project.')">🚀 Open-Connect Project</span>
+        <span class="chip" onclick="fillPrompt('Where did Pranit graduate and what is his education background?')">🎓 Education Background</span>
+        <span class="chip" onclick="fillPrompt('What are his portfolio, GitHub, and contact links?')">🌐 Portfolio & Links</span>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
+        <div class="message-row agent">
+            <div class="bubble">
+Hello! I am <strong>Praya</strong>, Pranit Bhangale's AI Personal Assistant. 
+I am connected to his verified portfolio, GitHub repositories, and LinkedIn profile. 
+Ask me anything about his projects, technical expertise, or experience!
+            </div>
+            <div class="meta-info">System initialized • Lock-Free Atomic Cache Active</div>
+        </div>
+    </div>
+
+    <form class="input-bar" id="chatForm" onsubmit="sendMessage(event)">
+        <input 
+            type="text" 
+            id="promptInput" 
+            placeholder="Ask Praya a question (e.g. repeated queries return instantly from cache)..." 
+            autocomplete="off" 
+            required 
+        />
+        <button type="submit" class="btn-send" id="sendBtn">Send</button>
+    </form>
+</main>
+
+<script>
+    const chatContainer = document.getElementById('chatContainer');
+    const promptInput = document.getElementById('promptInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const systemStatus = document.getElementById('systemStatus');
+    const conversationId = 'praya-session-' + Math.random().toString(36).substring(2, 9);
+
+    function fillPrompt(text) {
+        promptInput.value = text;
+        promptInput.focus();
+    }
+
+    function scrollToBottom() {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    async function sendMessage(e) {
+        e.preventDefault();
+        const prompt = promptInput.value.trim();
+        if (!prompt) return;
+
+        // 1. Render User Message
+        appendMessage('user', prompt);
+        promptInput.value = '';
+        promptInput.disabled = true;
+        sendBtn.disabled = true;
+        systemStatus.textContent = 'Streaming...';
+
+        // 2. Prepare Agent Response Container
+        const { row, bubble, toolsContainer, metaInfo } = createAgentMessageContainer();
+        const startTime = performance.now();
+        let tokenCount = 0;
+
+        const cursor = document.createElement('span');
+        cursor.className = 'cursor';
+        bubble.appendChild(cursor);
+
+        try {
+            const response = await fetch('/api/agent/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'text/event-stream',
+                    'X-API-Version': 'v1'
+                },
+                body: JSON.stringify({
+                    prompt: prompt,
+                    conversationId: conversationId
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // keep last incomplete line in buffer
+
+                let currentEvent = 'message';
+
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith('event:')) {
+                        currentEvent = trimmed.substring(6).trim();
+                    } else if (trimmed.startsWith('data:')) {
+                        const rawData = line.substring(line.indexOf(':') + 1).trim();
+                        handleSseEvent(currentEvent, rawData, bubble, cursor, toolsContainer);
+                        tokenCount++;
+                    }
+                }
+                scrollToBottom();
+            }
+
+        } catch (err) {
+            bubble.textContent += `\n[Stream Error: ${err.message}]`;
+            bubble.style.color = '#f85149';
+        } finally {
+            if (cursor.parentNode) cursor.remove();
+            const durationMs = Math.round(performance.now() - startTime);
+            const isCached = durationMs < 50; // Sub-50ms means cache hit!
+            metaInfo.textContent = `Completed in ${durationMs}ms ${isCached ? '⚡ (Atomic Cache Hit)' : '🤖 (LLM Live Stream)'}`;
+
+            promptInput.disabled = false;
+            sendBtn.disabled = false;
+            promptInput.focus();
+            systemStatus.textContent = 'SSE Engine Ready';
+            scrollToBottom();
+        }
+    }
+
+    function handleSseEvent(event, data, bubble, cursor, toolsContainer) {
+        if (event === 'token') {
+            try {
+                // If token is JSON encoded (e.g. "\"word\""), parse it to preserve whitespace
+                const parsed = JSON.parse(data);
+                cursor.insertAdjacentText('beforebegin', parsed);
+            } catch {
+                cursor.insertAdjacentText('beforebegin', data);
+            }
+        } else if (event === 'tool') {
+            try {
+                const toolEvent = JSON.parse(data);
+                const badge = document.createElement('div');
+                badge.className = `tool-badge ${toolEvent.phase.toLowerCase()}`;
+                const icon = toolEvent.phase === 'STARTED' ? '⏳' : '✅';
+                badge.textContent = `${icon} Tool: ${toolEvent.name} [${toolEvent.phase}]`;
+                toolsContainer.appendChild(badge);
+            } catch {
+                console.warn('Could not parse tool event data:', data);
+            }
+        } else if (event === 'error') {
+            bubble.textContent += `\n[Error: ${data}]`;
+            bubble.style.color = '#f85149';
+        }
+    }
+
+    function appendMessage(sender, text) {
+        const row = document.createElement('div');
+        row.className = `message-row ${sender}`;
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        bubble.textContent = text;
+        row.appendChild(bubble);
+        chatContainer.appendChild(row);
+        scrollToBottom();
+    }
+
+    function createAgentMessageContainer() {
+        const row = document.createElement('div');
+        row.className = 'message-row agent';
+
+        const toolsContainer = document.createElement('div');
+        toolsContainer.className = 'tools-section';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+
+        const metaInfo = document.createElement('div');
+        metaInfo.className = 'meta-info';
+        metaInfo.textContent = 'Streaming response...';
+
+        row.appendChild(toolsContainer);
+        row.appendChild(bubble);
+        row.appendChild(metaInfo);
+        chatContainer.appendChild(row);
+        scrollToBottom();
+
+        return { row, bubble, toolsContainer, metaInfo };
+    }
+</script>
+</body>
+</html>
