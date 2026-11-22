@@ -31,35 +31,29 @@ public class GuardrailServiceImpl implements GuardrailService {
 
     @Override
     public GuardrailResult evaluate(String text, ValidationPhase phase) {
-        if (!this.properties.enabled()) {
-            return GuardrailResult.success(text);
-        }
-
+        if (!this.properties.enabled()) return GuardrailResult.success(text);
         final List<GuardrailViolation> aggregatedViolations = new ArrayList<>();
-
         for (GuardrailValidator validator : this.validators) {
             if (validator.supports(phase)) {
                 GuardrailResult result = validator.validate(text, phase);
                 if (!result.valid()) {
                     aggregatedViolations.addAll(result.violations());
                     if (this.properties.strictMode()) {
-                        log.warn("[GUARDRAIL] [CHECK-FAILED] phase: {}, validator: {}, ruleType: {}",
+                        log.warn("[GUARDRAIL] [CHECK-FAILED] phase: {}, validator: {}, ruleName: {}",
                                 phase,
                                 validator.getClass().getSimpleName(),
-                                result.violations().getFirst().ruleType());
+                                result.violations().getFirst().ruleName());
                         return result;
                     }
                 }
             }
         }
-
         if (!aggregatedViolations.isEmpty()) {
             String fallback = phase == ValidationPhase.INPUT
                     ? this.properties.inputViolationMessage()
                     : this.properties.outputViolationMessage();
             return GuardrailResult.failure(aggregatedViolations, fallback);
         }
-
         return GuardrailResult.success(text);
     }
 

@@ -38,11 +38,8 @@ public class KnowledgeRepository {
         final long startTime = System.currentTimeMillis();
         knowledgeCollection.clear();
         projectCollection.clear();
-
-        // Dynamically aggregate from all registered source strategies
         knowledgeCollection.addAll(this.knowledgeAggregator.aggregateKnowledge());
         projectCollection.addAll(this.knowledgeAggregator.aggregateProjects());
-
         final long durationMs = System.currentTimeMillis() - startTime;
         log.info("[DATA-SOURCE] [REPOSITORY-LOADED] In-memory store loaded items: {}, projects: {}, durationMs: {}",
                 knowledgeCollection.size(), projectCollection.size(), durationMs);

@@ -24,7 +24,8 @@ public class KeywordGuardrailValidator implements GuardrailValidator {
     public KeywordGuardrailValidator(GuardrailProperties properties) {
         this.properties = properties;
         this.lowerBlockedWords = properties.blockedWords() != null
-                ? properties.blockedWords().stream()
+                ? properties.blockedWords()
+                .stream()
                 .filter(StringUtils::hasText)
                 .map(w -> w.toLowerCase(Locale.ROOT))
                 .toList()
@@ -38,16 +39,11 @@ public class KeywordGuardrailValidator implements GuardrailValidator {
 
     @Override
     public GuardrailResult validate(String text, ValidationPhase phase) {
-        if (!StringUtils.hasText(text) || this.lowerBlockedWords.isEmpty()) {
-            return GuardrailResult.success(text);
-        }
-
+        if (!StringUtils.hasText(text) || this.lowerBlockedWords.isEmpty()) return GuardrailResult.success(text);
         final String lowerText = text.toLowerCase(Locale.ROOT);
         final List<GuardrailViolation> violations = new ArrayList<>();
         final String fallbackMessage = phase == ValidationPhase.INPUT
-                ? this.properties.inputViolationMessage()
-                : this.properties.outputViolationMessage();
-
+                ? this.properties.inputViolationMessage() : this.properties.outputViolationMessage();
         for (String blockedWord : this.lowerBlockedWords) {
             if (lowerText.contains(blockedWord)) {
                 violations.add(new GuardrailViolation(
@@ -56,18 +52,10 @@ public class KeywordGuardrailValidator implements GuardrailValidator {
                         blockedWord,
                         fallbackMessage
                 ));
-
-                // Fail-fast in strict mode
-                if (this.properties.strictMode()) {
-                    return GuardrailResult.failure(violations, fallbackMessage);
-                }
+                if (this.properties.strictMode()) return GuardrailResult.failure(violations, fallbackMessage);
             }
         }
-
-        if (!violations.isEmpty()) {
-            return GuardrailResult.failure(violations, fallbackMessage);
-        }
-
+        if (!violations.isEmpty()) return GuardrailResult.failure(violations, fallbackMessage);
         return GuardrailResult.success(text);
     }
 

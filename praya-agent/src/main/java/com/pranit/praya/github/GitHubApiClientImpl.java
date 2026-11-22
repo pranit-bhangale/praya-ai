@@ -2,7 +2,6 @@ package com.pranit.praya.github;
 
 import com.pranit.praya.constant.ApiConstants;
 import com.pranit.praya.ratelimit.RateLimiter;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -10,23 +9,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
 /**
  * Production implementation of the GitHub REST API client operating strictly on public data.
  */
-@Slf4j
 @Service
 public final class GitHubApiClientImpl implements GitHubApiClient {
 
     private static final ParameterizedTypeReference<List<Map<String, Object>>> REPOSITORY_LIST_RESPONSE =
-            new ParameterizedTypeReference<>() {};
+            new ParameterizedTypeReference<>() {
+            };
     private static final ParameterizedTypeReference<Map<String, Object>> GITHUB_OBJECT_RESPONSE =
-            new ParameterizedTypeReference<>() {};
+            new ParameterizedTypeReference<>() {
+            };
 
     private final RestClient.Builder restClientBuilder;
     private final RateLimiter rateLimiter;
@@ -67,40 +65,6 @@ public final class GitHubApiClientImpl implements GitHubApiClient {
             page++;
         }
         return allRepositories;
-    }
-
-    @Override
-    public Map<String, Object> getRepoTree(String owner, String repo, String branch) {
-        this.rateLimiter.acquire(ApiConstants.RATE_LIMIT_KEY_GITHUB);
-        return client()
-                .get()
-                .uri("/repos/{owner}/{repo}/git/trees/{branch}?recursive=1", owner, repo, branch)
-                .retrieve()
-                .body(GITHUB_OBJECT_RESPONSE);
-    }
-
-    @Override
-    public String getFileContent(String owner, String repo, String path) {
-        this.rateLimiter.acquire(ApiConstants.RATE_LIMIT_KEY_GITHUB);
-        final Map<String, Object> response = client()
-                .get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/repos/{owner}/{repo}/contents/{+path}")
-                        .build(owner, repo, path))
-                .retrieve()
-                .body(GITHUB_OBJECT_RESPONSE);
-
-        if (response == null) return null;
-        Object encoding = response.get("encoding");
-        Object content = response.get("content");
-        if (content == null) return null;
-
-        if ("base64".equalsIgnoreCase(String.valueOf(encoding))) {
-            final String encodedContent = String.valueOf(content).replaceAll("\\s", "");
-            final byte[] decodedContent = Base64.getDecoder().decode(encodedContent);
-            return new String(decodedContent, StandardCharsets.UTF_8);
-        }
-        return String.valueOf(content);
     }
 
     @Override

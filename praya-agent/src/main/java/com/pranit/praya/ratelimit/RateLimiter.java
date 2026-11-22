@@ -8,9 +8,6 @@ public interface RateLimiter {
 
     /**
      * Attempts to acquire 1 permit for the given key without blocking.
-     *
-     * @param key the domain or operation key (e.g. "github", "linkedin", "portfolio")
-     * @return true if permit was acquired, false otherwise
      */
     boolean tryAcquire(String key);
 

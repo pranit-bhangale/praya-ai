@@ -153,9 +153,9 @@ classDiagram
     }
 
     AiService <|.. PrayaAiService
-    PrayaAiService --> ChatEventStream : instantiates per turn
-    ChatEventStream --> ToolCallObservingAdvisor : configures
-    PrayaAiService ..> StrictGuardrailAdvisor : invoked via ChatClient
+    PrayaAiService --> ChatEventStream: instantiates per turn
+    ChatEventStream --> ToolCallObservingAdvisor: configures
+    PrayaAiService ..> StrictGuardrailAdvisor: invoked via ChatClient
 ```
 
 ---
@@ -292,7 +292,9 @@ classDiagram
 ## 3. Concurrency & Algorithm Deep Dives
 
 ### 3.1 Fair Sliding-Window Rate Limiter Algorithm
-Located in `InMemorySlidingWindowBucket.java`, this class protects against busy-waiting by utilizing a **fair `ReentrantLock(true)`** and a **`Condition` variable**:
+
+Located in `SlidingWindowBucket.java`, this class protects against busy-waiting by utilizing a **fair
+`ReentrantLock(true)`** and a **`Condition` variable**:
 
 ```mermaid
 flowchart TD
@@ -300,10 +302,8 @@ flowchart TD
     LockAcquire --> LoopStart["while (permitsNeeded > 0)"]
     LoopStart --> EvictOld["Evict timestamps older than (now - windowMs)"]
     EvictOld --> CheckCapacity{"available permits >= 1?"}
-    
     CheckCapacity -- YES --> GrantPermit["timestamps.add(now); permitsNeeded--;"]
     GrantPermit --> ReleaseAndReturn["lock.unlock(); return true;"]
-    
     CheckCapacity -- NO --> CalcWait["waitMs = oldestTimestamp + windowMs - now"]
     CalcWait --> CheckTimeout{"waitMs > remainingTimeout?"}
     CheckTimeout -- YES --> TimeoutFail["lock.unlock(); return false (Rate Limit Exceeded);"]
@@ -312,20 +312,27 @@ flowchart TD
 ```
 
 ### 3.2 Real-Time Output Stream Guardrail Inspection
+
 In `StrictGuardrailAdvisor.java`, streaming response chunks are checked dynamically without breaking SSE latency:
-1. As each `ChatClientResponse` arrives from the reactive flux, its text content is extracted via `extractResponseText(chunk)`.
+
+1. As each `ChatClientResponse` arrives from the reactive flux, its text content is extracted via
+   `extractResponseText(chunk)`.
 2. The chunk is appended to a thread-local `StringBuilder buffer`.
 3. `guardrailService.evaluate(buffer.toString(), ValidationPhase.OUTPUT)` is invoked.
 4. If output patterns match (e.g., system prompt phrase leak, secret keys, JWT patterns):
-   - In **Strict Mode**, the stream is aborted immediately with `Flux.error(new GuardrailViolationException(...))`.
-   - In **Non-Strict Mode**, the chunk is replaced with the configured safety fallback message.
+    - In **Strict Mode**, the stream is aborted immediately with `Flux.error(new GuardrailViolationException(...))`.
+    - In **Non-Strict Mode**, the chunk is replaced with the configured safety fallback message.
 
 ### 3.3 Dynamic Tool Lifecycle Observation
+
 In `ToolCallObservingAdvisor.java`:
+
 - Extends both `CallAdvisor` and `StreamAdvisor`.
 - `ORDER = ToolCallingAdvisor.DEFAULT_ORDER + 100`: Placed *inside* the Spring AI tool execution loop.
-- Captures tool invocations before execution and records their completion when `ToolResponseMessage` is added to the instructions prompt list.
-- Dispatches asynchronous events to the client's `Sinks.Many` for real-time UI status updates (`EVENT_TOOL: {"name":"listProjectSummaries","phase":"COMPLETED"}`).
+- Captures tool invocations before execution and records their completion when `ToolResponseMessage` is added to the
+  instructions prompt list.
+- Dispatches asynchronous events to the client's `Sinks.Many` for real-time UI status updates
+  (`EVENT_TOOL: {"name":"listProjectSummaries","phase":"COMPLETED"}`).
 
 ---
 
@@ -334,9 +341,10 @@ In `ToolCallObservingAdvisor.java`:
 ### 4.1 REST API Endpoint Contract
 
 #### Request: `POST /api/agent/chat`
+
 - **Headers**:
-  - `Content-Type: application/json`
-  - `Accept: text/event-stream`
+    - `Content-Type: application/json`
+    - `Accept: text/event-stream`
 - **Request Body**:
   ```json
   {
@@ -346,6 +354,7 @@ In `ToolCallObservingAdvisor.java`:
   ```
 
 #### Response Stream: `text/event-stream`
+
 ```
 event: tool
 data: {"id":"listProjectSummaries","name":"listProjectSummaries","phase":"STARTED","timestamp":1700000000000}
@@ -373,37 +382,38 @@ data: ""
 
 ### 4.2 Comprehensive Tool Contracts
 
-| Tool Method | Bean Class | Tier | Multi-Line Description & Parameters |
-| :--- | :--- | :---: | :--- |
-| `listProjectSummaries()` | `GitHubTools` | **Tier 1** | Concise catalog of software projects. Returns lightweight `ProjectSummary` (id, name, summary, primaryTech). |
-| `getProjectDetails(projectName)` | `GitHubTools` | **Tier 2** | Exhaustive architecture, tech stack, and highlights for target project. Accepts canonical aliases: `'open-connect'`, `'habit-tracker'`, `'todo-app'`, `'cleaning-bot'`. |
-| `getSkillsSummary()` | `GitHubTools` | **Tier 1** | High-level core languages (Java, Python, TypeScript) and primary frameworks. |
-| `getSkillsDeepDive()` | `GitHubTools` | **Tier 2** | Exhaustive breakdown across Languages, Backend, DBs, Cloud/DevOps, Architecture. |
-| `fetchGitHubRepositories()` | `GitHubTools` | **Dedicated** | Returns public repositories with star counts, fork counts, primary language, and source links. |
-| `listEducationSummary()` | `LinkedInTools` | **Tier 1** | High-level academic credentials (PG-DAC CDAC, BE Electronics SPPU). |
-| `getEducationDetails(credentialName)` | `LinkedInTools` | **Tier 2** | Comprehensive syllabus and coursework. Parameters: `'pg-dac'`, `'cdac'`, `'be'`, `'sppu'`. |
-| `fetchCertifications()` | `LinkedInTools` | **Dedicated** | Verified certifications, diplomas, and accreditation records. |
-| `fetchLinkedInPosts()` | `LinkedInTools` | **Dedicated** | Engineering posts, WebSocket resiliency write-ups, and clean architecture thought leadership. |
-| `fetchLinkedInProfile()` | `LinkedInTools` | **Dedicated** | Verified headline, connection URL, and professional identity. |
-| `getCareerOverview()` | `LinkedInTools` | **Tier 1** | Systems engineer identity, role overview, and core backend competencies. |
-| `getArchitecturePhilosophy()` | `LinkedInTools` | **Tier 2** | Clean Architecture, SOLID, TDD, and Reactive Streams engineering standards. |
-| `getPortfolioSummary()` | `PortfolioTools` | **Tier 1** | Bio tagline and verified official profile URLs. |
-| `getPortfolioDeepDive()` | `PortfolioTools` | **Tier 2** | Comprehensive about-me narrative journey and scraped portfolio text. |
-| `fetchBlogArticles()` | `PortfolioTools` | **Dedicated** | Technical blog articles, architectural deep dives, and estimated reading times. |
+| Tool Method                           | Bean Class       |     Tier      | Multi-Line Description & Parameters                                                                                                                                     |
+|:--------------------------------------|:-----------------|:-------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `listProjectSummaries()`              | `GitHubTools`    |  **Tier 1**   | Concise catalog of software projects. Returns lightweight `ProjectSummary` (id, name, summary, primaryTech).                                                            |
+| `getProjectDetails(projectName)`      | `GitHubTools`    |  **Tier 2**   | Exhaustive architecture, tech stack, and highlights for target project. Accepts canonical aliases: `'open-connect'`, `'habit-tracker'`, `'todo-app'`, `'cleaning-bot'`. |
+| `getSkillsSummary()`                  | `GitHubTools`    |  **Tier 1**   | High-level core languages (Java, Python, TypeScript) and primary frameworks.                                                                                            |
+| `getSkillsDeepDive()`                 | `GitHubTools`    |  **Tier 2**   | Exhaustive breakdown across Languages, Backend, DBs, Cloud/DevOps, Architecture.                                                                                        |
+| `fetchGitHubRepositories()`           | `GitHubTools`    | **Dedicated** | Returns public repositories with star counts, fork counts, primary language, and source links.                                                                          |
+| `listEducationSummary()`              | `LinkedInTools`  |  **Tier 1**   | High-level academic credentials (PG-DAC CDAC, BE Electronics SPPU).                                                                                                     |
+| `getEducationDetails(credentialName)` | `LinkedInTools`  |  **Tier 2**   | Comprehensive syllabus and coursework. Parameters: `'pg-dac'`, `'cdac'`, `'be'`, `'sppu'`.                                                                              |
+| `fetchCertifications()`               | `LinkedInTools`  | **Dedicated** | Verified certifications, diplomas, and accreditation records.                                                                                                           |
+| `fetchLinkedInPosts()`                | `LinkedInTools`  | **Dedicated** | Engineering posts, WebSocket resiliency write-ups, and clean architecture thought leadership.                                                                           |
+| `fetchLinkedInProfile()`              | `LinkedInTools`  | **Dedicated** | Verified headline, connection URL, and professional identity.                                                                                                           |
+| `getCareerOverview()`                 | `LinkedInTools`  |  **Tier 1**   | Systems engineer identity, role overview, and core backend competencies.                                                                                                |
+| `getArchitecturePhilosophy()`         | `LinkedInTools`  |  **Tier 2**   | Clean Architecture, SOLID, TDD, and Reactive Streams engineering standards.                                                                                             |
+| `getPortfolioSummary()`               | `PortfolioTools` |  **Tier 1**   | Bio tagline and verified official profile URLs.                                                                                                                         |
+| `getPortfolioDeepDive()`              | `PortfolioTools` |  **Tier 2**   | Comprehensive about-me narrative journey and scraped portfolio text.                                                                                                    |
+| `fetchBlogArticles()`                 | `PortfolioTools` | **Dedicated** | Technical blog articles, architectural deep dives, and estimated reading times.                                                                                         |
 
 ---
 
 ## 5. Global Exception & Error Handling
 
-Centralized under [GlobalExceptionHandler.java](file:///P:/praya-ai/praya-agent/src/main/java/com/pranit/praya/exception/GlobalExceptionHandler.java):
+Centralized
+under [GlobalExceptionHandler.java](file:///P:/praya-ai/praya-agent/src/main/java/com/pranit/praya/exception/GlobalExceptionHandler.java):
 
-| Exception | HTTP Status | RFC 7807 Title | Behavior |
-| :--- | :---: | :--- | :--- |
-| `GuardrailViolationException` | **400 Bad Request** | `Security Guardrail Violation` | Rejects malicious prompt or suppresses leaked output with detailed violation reason. |
-| `RateLimitExceededException` | **429 Too Many Requests** | `Rate Limit Exceeded` | Enforces client cooldown and populates `Retry-After` header. |
-| `MethodArgumentNotValidException` | **400 Bad Request** | `Validation Failed` | Identifies invalid input fields (e.g., blank prompt). |
-| `ConstraintViolationException` | **400 Bad Request** | `Constraint Violation` | Reports parameter-level validation failures. |
-| `Throwable / Exception` | **500 Internal Server Error** | `Internal Server Error` | Logs full stack trace while withholding internal details from public clients. |
+| Exception                         |          HTTP Status          | RFC 7807 Title                 | Behavior                                                                             |
+|:----------------------------------|:-----------------------------:|:-------------------------------|:-------------------------------------------------------------------------------------|
+| `GuardrailViolationException`     |      **400 Bad Request**      | `Security Guardrail Violation` | Rejects malicious prompt or suppresses leaked output with detailed violation reason. |
+| `RateLimitExceededException`      |   **429 Too Many Requests**   | `Rate Limit Exceeded`          | Enforces client cooldown and populates `Retry-After` header.                         |
+| `MethodArgumentNotValidException` |      **400 Bad Request**      | `Validation Failed`            | Identifies invalid input fields (e.g., blank prompt).                                |
+| `ConstraintViolationException`    |      **400 Bad Request**      | `Constraint Violation`         | Reports parameter-level validation failures.                                         |
+| `Throwable / Exception`           | **500 Internal Server Error** | `Internal Server Error`        | Logs full stack trace while withholding internal details from public clients.        |
 
 ---
 
@@ -416,25 +426,28 @@ Praya AI enforces a structured, security-hardened logging pattern across all bac
 ```
 
 ### Security & Sanitization Rules
+
 1. **Zero Sensitive Payload Logging**:
-   - User prompts are never logged in full to protect against PII or prompt injection payload leakage; only `conversationId` and `promptLength` are recorded.
-   - Secret keys, JWT tokens, passwords, and bearer authorization headers are never logged.
-   - Guardrails log only the matched `ruleType` and standard violation message, never the captured sensitive text.
+    - User prompts are never logged in full to protect against PII or prompt injection payload leakage; only
+      `conversationId` and `promptLength` are recorded.
+    - Secret keys, JWT tokens, passwords, and bearer authorization headers are never logged.
+    - Guardrails log only the matched `ruleType` and standard violation message, never the captured sensitive text.
 2. **Zero String Concatenation Overhead**:
-   - All log invocations use SLF4J parameterized `{}` placeholders to eliminate runtime string allocation when log levels are disabled.
+    - All log invocations use SLF4J parameterized `{}` placeholders to eliminate runtime string allocation when log
+      levels are disabled.
 3. **Traceability & Timing**:
-   - Schedulers record execution timestamps, item counts, and elapsed `durationMs`.
-   - Data source scrapers log target endpoints, quantity of items/repositories retrieved, and fetch latencies.
+    - Schedulers record execution timestamps, item counts, and elapsed `durationMs`.
+    - Data source scrapers log target endpoints, quantity of items/repositories retrieved, and fetch latencies.
 
 ### Standard Subsystem Catalog
 
-| Subsystem Tag | Action Tags | Purpose & Metric Fields |
-| :--- | :--- | :--- |
-| `[AI-AGENT]` | `[INCOMING-REQUEST]`, `[INPUT-BLOCKED]`, `[CACHE-HIT]`, `[CACHE-MISS]`, `[TOOL-STARTED]`, `[TOOL-COMPLETED]`, `[RESPONSE-COMPLETE]` | Tracks end-to-end chat turn lifecycle, cache efficiency, tool invocation events, generated character counts, and latency. |
-| `[GUARDRAIL]` | `[INPUT-BLOCKED]`, `[OUTPUT-BLOCKED]`, `[CHECK-FAILED]`, `[VIOLATION]` | Records security validation failures with `phase`, `validator`, and `ruleType` without leaking matched content. |
-| `[RATE-LIMIT]` | `[REJECTED]`, `[EXPRESSION-ERROR]`, `[ACQUIRE-ERROR]`, `[CHECK-ERROR]`, `[FAIL-OPEN]`, `[BUCKET-CLEANUP]` | Monitors policy checks, client cooldowns, SpEL key resolution, and bucket eviction. |
-| `[DATA-SOURCE]` | `[GITHUB-FETCH-START]`, `[GITHUB-FETCH-SUCCESS]`, `[GITHUB-FETCH-FALLBACK]`, `[GITHUB-REPO-SKIP]`, `[LINKEDIN-FETCH-START]`, `[LINKEDIN-AUTHWALL]`, `[LINKEDIN-FETCH-SUCCESS]`, `[LINKEDIN-SCRAPE-GATED]`, `[PORTFOLIO-FETCH-START]`, `[PORTFOLIO-FETCH-SUCCESS]`, `[KNOWLEDGE-AGGREGATED]`, `[PROJECTS-AGGREGATED]`, `[REPOSITORY-LOADED]` | Records external fetch milestones, items scraped, API fallbacks, and aggregation timings. |
-| `[SCHEDULER]` | `[CACHE-EVICT]`, `[DATA-REFRESH]` | Logs periodic eviction of AI response cache and knowledge collection refresh timings. |
-| `[TOOL]` | `[GITHUB-SERIALIZE-ERROR]`, `[LINKEDIN-SERIALIZE-ERROR]`, `[PORTFOLIO-SERIALIZE-ERROR]` | Captures JSON serialization errors within tool method boundaries. |
-| `[SYSTEM]` | `[UNHANDLED-EXCEPTION]` | Tracks unexpected runtime exceptions with sanitized request paths. |
+| Subsystem Tag   | Action Tags                                                                                                                                                                                                                                                                                                                                 | Purpose & Metric Fields                                                                                                   |
+|:----------------|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:--------------------------------------------------------------------------------------------------------------------------|
+| `[AI-AGENT]`    | `[INCOMING-REQUEST]`, `[INPUT-BLOCKED]`, `[CACHE-HIT]`, `[CACHE-MISS]`, `[TOOL-STARTED]`, `[TOOL-COMPLETED]`, `[RESPONSE-COMPLETE]`                                                                                                                                                                                                         | Tracks end-to-end chat turn lifecycle, cache efficiency, tool invocation events, generated character counts, and latency. |
+| `[GUARDRAIL]`   | `[INPUT-BLOCKED]`, `[OUTPUT-BLOCKED]`, `[CHECK-FAILED]`, `[VIOLATION]`                                                                                                                                                                                                                                                                      | Records security validation failures with `phase`, `validator`, and `ruleType` without leaking matched content.           |
+| `[RATE-LIMIT]`  | `[REJECTED]`, `[EXPRESSION-ERROR]`, `[ACQUIRE-ERROR]`, `[CHECK-ERROR]`, `[FAIL-OPEN]`, `[BUCKET-CLEANUP]`                                                                                                                                                                                                                                   | Monitors policy checks, client cooldowns, SpEL key resolution, and bucket eviction.                                       |
+| `[DATA-SOURCE]` | `[GITHUB-FETCH-START]`, `[GITHUB-FETCH-SUCCESS]`, `[GITHUB-FETCH-FALLBACK]`, `[GITHUB-REPO-SKIP]`, `[LINKEDIN-FETCH-START]`, `[LINKEDIN-AUTHWALL]`, `[LINKEDIN-FETCH-SUCCESS]`, `[LINKEDIN-SCRAPE-GATED]`, `[PORTFOLIO-FETCH-START]`, `[PORTFOLIO-FETCH-SUCCESS]`, `[KNOWLEDGE-AGGREGATED]`, `[PROJECTS-AGGREGATED]`, `[REPOSITORY-LOADED]` | Records external fetch milestones, items scraped, API fallbacks, and aggregation timings.                                 |
+| `[SCHEDULER]`   | `[CACHE-EVICT]`, `[DATA-REFRESH]`                                                                                                                                                                                                                                                                                                           | Logs periodic eviction of AI response cache and knowledge collection refresh timings.                                     |
+| `[TOOL]`        | `[GITHUB-SERIALIZE-ERROR]`, `[LINKEDIN-SERIALIZE-ERROR]`, `[PORTFOLIO-SERIALIZE-ERROR]`                                                                                                                                                                                                                                                     | Captures JSON serialization errors within tool method boundaries.                                                         |
+| `[SYSTEM]`      | `[UNHANDLED-EXCEPTION]`                                                                                                                                                                                                                                                                                                                     | Tracks unexpected runtime exceptions with sanitized request paths.                                                        |
 

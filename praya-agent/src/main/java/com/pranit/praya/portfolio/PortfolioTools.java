@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * AI Tool specializing in Pranit's personal portfolio website.
@@ -31,10 +32,54 @@ public class PortfolioTools {
     private final ObjectMapper objectMapper;
 
     /**
-     * Tier 1 (Summary): Returns high-level headline bio and official links.
+     * Dedicated Tool: Returns verified direct contact information (Email, LinkedIn, Portfolio).
      */
     @Tool(description = """
-            [TIER 1 - HIGH-LEVEL SUMMARY]
+            [CONTACT INFORMATION]
+            Retrieves verified contact details and direct reach-out links for Pranit Bhangale.
+            
+            Returns:
+              A JSON object containing:
+              - name: Full name
+              - email: Official direct email address (pranitbhangale14@gmail.com)
+              - linkedinUrl: Official LinkedIn profile URL
+              - portfolioUrl: Official live portfolio URL
+              - githubUrl: Official GitHub profile URL
+              - preferredChannel: Recommended communication channels for engineering opportunities
+            
+            When to call:
+              - The user or client asks "How can I contact Pranit?", "What is his email?", "How do I reach out?",
+                "Provide his contact info", "How to get in touch?", or asks for ways to connect with him.
+            
+            When NOT to call:
+              - Do NOT call for technical skills inquiries (use 'getSkillsSummary') or project details (use 'getProjectDetails').
+            """)
+    @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'contact-info'")
+    public String getContactInformation() {
+        Map<String, String> contactInfo = Map.of(
+                "name", ProfileConstants.NAME,
+                "email", ProfileConstants.EMAIL,
+                "linkedinUrl", ProfileConstants.LINKEDIN_URL,
+                "portfolioUrl", ProfileConstants.PORTFOLIO_URL,
+                "githubUrl", ProfileConstants.GITHUB_URL,
+                "preferredChannel", "Email (" + ProfileConstants.EMAIL + ") or LinkedIn for direct engineering and collaboration inquiries."
+        );
+        return serializeToJson(ToolResponse.success(DataSourceType.PORTFOLIO_WEBSITE, 1, contactInfo));
+    }
+
+    private <T> String serializeToJson(ToolResponse<T> response) {
+        try {
+            return this.objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+        } catch (JsonProcessingException e) {
+            log.error("[TOOL] [PORTFOLIO-SERIALIZE-ERROR] Failed to serialize portfolio tool response: {}", e.getMessage(), e);
+            return "{\"status\":\"" + ApiConstants.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
+        }
+    }
+
+    /**
+     * Returns high-level headline bio and official links.
+     */
+    @Tool(description = """
             Retrieves Pranit Bhangale's high-level bio tagline, verified official profile links, and contact handles.
             
             Returns:
@@ -55,27 +100,46 @@ public class PortfolioTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'portfolio-summary'")
     public String getPortfolioSummary() {
-        Map<String, String> summary = Map.of(
-                "name", ProfileConstants.NAME,
-                "bio", ProfileConstants.DEFAULT_BIO,
-                "portfolioUrl", ProfileConstants.PORTFOLIO_URL,
-                "githubUrl", ProfileConstants.GITHUB_URL,
-                "linkedinUrl", ProfileConstants.LINKEDIN_URL
-        );
+        try {
+            List<KnowledgeItem> items = this.portfolioWebsiteSource.fetchKnowledge();
+            String bio = ProfileConstants.DEFAULT_BIO;
+            String title = ProfileConstants.NAME + " — Systems & Backend Engineer";
+            if (!items.isEmpty()) {
+                Optional<KnowledgeItem> bioItem = items.stream()
+                        .filter(k -> ProfileConstants.CATEGORY_BIO.equalsIgnoreCase(k.category()))
+                        .findFirst();
+                if (bioItem.isPresent()) {
+                    title = bioItem.get().title();
+                    bio = bioItem.get().content();
+                }
+            }
 
-        return serializeToJson(ToolResponse.<Map<String, String>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.PORTFOLIO_WEBSITE)
-                .count(1)
-                .data(summary)
-                .build());
+            Map<String, String> summary = Map.of(
+                    "name", ProfileConstants.NAME,
+                    "title", title,
+                    "bio", bio,
+                    "portfolioUrl", ProfileConstants.PORTFOLIO_URL,
+                    "githubUrl", ProfileConstants.GITHUB_URL,
+                    "linkedinUrl", ProfileConstants.LINKEDIN_URL
+            );
+            return serializeToJson(ToolResponse.success(DataSourceType.PORTFOLIO_WEBSITE, 1, summary));
+        } catch (Exception e) {
+            log.error("[TOOL] [PORTFOLIO-SUMMARY-ERROR] Live fetch error: {}", e.getMessage(), e);
+            Map<String, String> summary = Map.of(
+                    "name", ProfileConstants.NAME,
+                    "bio", ProfileConstants.DEFAULT_BIO,
+                    "portfolioUrl", ProfileConstants.PORTFOLIO_URL,
+                    "githubUrl", ProfileConstants.GITHUB_URL,
+                    "linkedinUrl", ProfileConstants.LINKEDIN_URL
+            );
+            return serializeToJson(ToolResponse.success(DataSourceType.PORTFOLIO_WEBSITE, 1, summary));
+        }
     }
 
     /**
-     * Tier 2 (Deep Dive): Returns complete website narrative and all scraped sections.
+     * Returns complete website narrative and all scraped sections.
      */
     @Tool(description = """
-            [TIER 2 - DEEP DIVE]
             Retrieves the full narrative text, comprehensive about-me sections, and detailed journey
             from Pranit Bhangale's live portfolio website.
             
@@ -93,13 +157,16 @@ public class PortfolioTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'portfolio-deep-dive'")
     public String getPortfolioDeepDive() {
-        List<KnowledgeItem> items = this.portfolioWebsiteSource.fetchKnowledge();
-        return serializeToJson(ToolResponse.<List<KnowledgeItem>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.PORTFOLIO_WEBSITE)
-                .count(items.size())
-                .data(items)
-                .build());
+        try {
+            List<KnowledgeItem> items = this.portfolioWebsiteSource.fetchKnowledge();
+            if (items.isEmpty()) {
+                return serializeToJson(ToolResponse.notAvailable(DataSourceType.PORTFOLIO_WEBSITE, "Detailed portfolio content is currently not available from the live website."));
+            }
+            return serializeToJson(ToolResponse.success(DataSourceType.PORTFOLIO_WEBSITE, items.size(), items));
+        } catch (Exception e) {
+            log.error("[TOOL] [PORTFOLIO-DEEPDIVE-ERROR] Failed to retrieve live portfolio content: {}", e.getMessage(), e);
+            return serializeToJson(ToolResponse.error(DataSourceType.PORTFOLIO_WEBSITE, "Something went wrong while retrieving live portfolio content. Please try again later."));
+        }
     }
 
     /**
@@ -127,47 +194,28 @@ public class PortfolioTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'blog-articles'")
     public String fetchBlogArticles() {
-        List<BlogArticle> articles = List.of(
-                BlogArticle.builder()
-                        .id("blog-realtime-stomp")
-                        .title("Engineering High-Throughput Real-Time Chat with Spring Boot & STOMP WebSockets")
-                        .summary("Architectural breakdown of bidirectional STOMP messaging, heartbeat connection leasing, and AES-256 payload encryption at rest.")
-                        .url(ProfileConstants.PORTFOLIO_URL + "/blog/realtime-chat")
-                        .tags(List.of("Spring Boot", "WebSockets", "STOMP", "Cryptography", "Java 21"))
-                        .readingTime("7 min read")
-                        .build(),
-                BlogArticle.builder()
-                        .id("blog-clean-architecture")
-                        .title("Decoupling Business Logic with Clean Architecture in Modern Backend Systems")
-                        .summary("How to isolate domain entities, use cases, and repository interfaces from Spring framework annotations and database drivers.")
-                        .url(ProfileConstants.PORTFOLIO_URL + "/blog/clean-architecture")
-                        .tags(List.of("Clean Architecture", "SOLID", "Domain-Driven Design", "Java"))
-                        .readingTime("5 min read")
-                        .build(),
-                BlogArticle.builder()
-                        .id("blog-iot-freertos")
-                        .title("Multitasking and Obstacle Navigation on ESP32 Microcontrollers with FreeRTOS")
-                        .summary("Hardware telemetry and concurrent dual-core task scheduling for autonomous robotics using C++ and FreeRTOS queues.")
-                        .url(ProfileConstants.PORTFOLIO_URL + "/blog/esp32-freertos")
-                        .tags(List.of("ESP32", "FreeRTOS", "C++", "IoT", "Robotics"))
-                        .readingTime("6 min read")
-                        .build()
-        );
-
-        return serializeToJson(ToolResponse.<List<BlogArticle>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.PORTFOLIO_WEBSITE)
-                .count(articles.size())
-                .data(articles)
-                .build());
-    }
-
-    private <T> String serializeToJson(ToolResponse<T> response) {
         try {
-            return this.objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
-        } catch (JsonProcessingException e) {
-            log.error("[TOOL] [PORTFOLIO-SERIALIZE-ERROR] Failed to serialize portfolio tool response: {}", e.getMessage(), e);
-            return "{\"status\":\"" + ApiConstants.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
+            List<KnowledgeItem> items = this.portfolioWebsiteSource.fetchKnowledge()
+                    .stream()
+                    .filter(k -> ProfileConstants.CATEGORY_BLOG.equalsIgnoreCase(k.category()))
+                    .toList();
+            if (items.isEmpty()) {
+                return serializeToJson(ToolResponse.notAvailable(DataSourceType.PORTFOLIO_WEBSITE, "Blog articles are currently not available from the live website."));
+            }
+            List<BlogArticle> articles = items.stream()
+                    .map(k -> BlogArticle.builder()
+                            .id(k.id())
+                            .title(k.title())
+                            .summary(k.content())
+                            .url(ProfileConstants.PORTFOLIO_URL)
+                            .tags(k.tags())
+                            .readingTime("N/A")
+                            .build())
+                    .toList();
+            return serializeToJson(ToolResponse.success(DataSourceType.PORTFOLIO_WEBSITE, articles.size(), articles));
+        } catch (Exception e) {
+            log.error("[TOOL] [PORTFOLIO-BLOG-ERROR] Failed to retrieve live blog articles: {}", e.getMessage(), e);
+            return serializeToJson(ToolResponse.error(DataSourceType.PORTFOLIO_WEBSITE, "Something went wrong while retrieving blog articles from the live website. Please try again later."));
         }
     }
 }

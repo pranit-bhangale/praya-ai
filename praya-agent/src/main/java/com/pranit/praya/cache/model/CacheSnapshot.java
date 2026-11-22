@@ -19,8 +19,8 @@ public record CacheSnapshot<K, V>(
         var copy = new HashMap<>(entries);
         copy.entrySet().removeIf(e -> e.getValue().isExpired());
         if (copy.size() >= maxCapacity && !copy.containsKey(key)) {
-            // Evict oldest entry (FIFO) to keep capacity bounded
-            copy.entrySet().stream()
+            copy.entrySet()
+                    .stream()
                     .min(Comparator.comparing(e -> e.getValue().createdAt()))
                     .ifPresent(e -> copy.remove(e.getKey()));
         }

@@ -24,7 +24,7 @@ import java.util.List;
  * and the pre-configured {@link ChatClient} bean.
  */
 @Configuration
-@EnableConfigurationProperties(GuardrailProperties.class)
+@EnableConfigurationProperties({GuardrailProperties.class, CorsProperties.class})
 public class AiConfig {
 
     public static final int DEFAULT_MAX_MEMORY_MESSAGES = 20;
@@ -52,7 +52,6 @@ public class AiConfig {
 
     @Bean
     public List<Advisor> defaultAdvisors(StrictGuardrailAdvisor strictGuardrailAdvisor, MessageChatMemoryAdvisor memoryAdvisor) {
-        // Strict guardrail has Ordered.HIGHEST_PRECEDENCE so it evaluates before memory is updated or LLM is called
         return List.of(strictGuardrailAdvisor, memoryAdvisor);
     }
 

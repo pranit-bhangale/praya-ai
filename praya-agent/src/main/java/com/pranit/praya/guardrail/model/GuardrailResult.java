@@ -5,10 +5,6 @@ import java.util.List;
 
 /**
  * Result representation of a guardrail validation cycle.
- *
- * @param valid         True if all checks passed, false otherwise
- * @param violations    List of violations detected (empty on success)
- * @param sanitizedText Sanitized or fallback content
  */
 public record GuardrailResult(
         boolean valid,

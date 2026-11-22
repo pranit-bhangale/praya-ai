@@ -19,13 +19,9 @@ import java.util.Locale;
 @Component
 public class ClientIdentity {
 
-    /**
-     * Hashes identifiers (conversationId, secret values) to 16 hex chars using SHA-256.
-     */
+
     public static String hash(String value) {
-        if (value == null) {
-            return "anonymous";
-        }
+        if (value == null) return "anonymous";
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(value.trim().toLowerCase(Locale.ROOT).getBytes(StandardCharsets.UTF_8));
@@ -42,14 +38,9 @@ public class ClientIdentity {
      * Normalizes IPv6 addresses to /64 prefixes so cycling subnet addresses cannot bypass limits.
      */
     public String ip(HttpServletRequest req) {
-        if (req == null) {
-            return "local";
-        }
+        if (req == null) return "local";
         String raw = req.getRemoteAddr();
-        if (raw == null || raw.isBlank()) {
-            return "unknown-ip";
-        }
-
+        if (raw == null || raw.isBlank()) return "unknown-ip";
         try {
             InetAddress addr = InetAddress.getByName(raw);
             if (addr instanceof Inet6Address v6) {

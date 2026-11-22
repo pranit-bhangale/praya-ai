@@ -19,6 +19,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -34,10 +35,9 @@ public class LinkedInTools {
     private final ObjectMapper objectMapper;
 
     /**
-     * Tier 1 (Summary): Returns high-level education credentials (names and institutions).
+     * Returns high-level education credentials (names and institutions).
      */
     @Tool(description = """
-            [TIER 1 - HIGH-LEVEL SUMMARY]
             Retrieves a high-level summary of Pranit Bhangale's verified academic qualifications and credentials.
             
             Returns:
@@ -57,11 +57,31 @@ public class LinkedInTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'education-summary'")
     public String listEducationSummary() {
-        List<EducationSummary> summaries = List.of(
+        try {
+            List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
+                    .filter(item -> ProfileConstants.CATEGORY_EDUCATION.equalsIgnoreCase(item.category())
+                            || ProfileConstants.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
+                    .toList();
+            if (!items.isEmpty()) {
+                List<EducationSummary> summaries = items.stream()
+                        .map(item -> EducationSummary.builder()
+                                .credentialName(item.title())
+                                .institution(item.content())
+                                .credentialType(item.category())
+                                .build())
+                        .toList();
+                return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, summaries.size(), summaries));
+            }
+        } catch (Exception e) {
+            log.warn("[TOOL] [LINKEDIN-EDUCATION-LIVE-FALLBACK] Live fetch unvailable ({}), serving verified baseline qualifications.", e.getMessage());
+        }
+
+        // Verified academic baseline qualifications
+        List<EducationSummary> baselineSummaries = List.of(
                 EducationSummary.builder()
                         .credentialName("Post Graduate Diploma in Advanced Computing (PG-DAC)")
-                        .institution("Institute of Emerging Technologies (IET), CDAC")
-                        .credentialType("Post Graduate Diploma / Certification")
+                        .institution("Institute of Emerging Technologies (IET), CDAC ACTS")
+                        .credentialType("Post Graduate Diploma / Accredited Credential")
                         .build(),
                 EducationSummary.builder()
                         .credentialName("Bachelor of Engineering (BE) in Electronics & Telecommunication")
@@ -69,20 +89,22 @@ public class LinkedInTools {
                         .credentialType("Bachelor's Degree")
                         .build()
         );
+        return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, baselineSummaries.size(), baselineSummaries));
+    }
 
-        return serializeToJson(ToolResponse.<List<EducationSummary>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.LINKEDIN)
-                .count(summaries.size())
-                .data(summaries)
-                .build());
+    private <T> String serializeToJson(ToolResponse<T> response) {
+        try {
+            return this.objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
+        } catch (JsonProcessingException e) {
+            log.error("[TOOL] [LINKEDIN-SERIALIZE-ERROR] Failed to serialize LinkedIn tool response: {}", e.getMessage(), e);
+            return "{\"status\":\"" + ApiConstants.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
+        }
     }
 
     /**
-     * Tier 2 (Deep Dive): Returns in-depth curriculum and specialized coursework for a degree or credential.
+     * Returns in-depth curriculum and specialized coursework for a degree or credential.
      */
     @Tool(description = """
-            [TIER 2 - DEEP DIVE]
             Retrieves exhaustive academic curriculum, syllabus, specialized coursework, and technical domains
             for Pranit Bhangale's educational qualifications.
             
@@ -116,41 +138,78 @@ public class LinkedInTools {
                       Example values: "pg-dac", "cdac", "be", "sppu".
                     """) String credentialName
     ) {
-        List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
-                .filter(item -> ProfileConstants.CATEGORY_EDUCATION.equalsIgnoreCase(item.category()))
-                .toList();
+        try {
+            List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
+                    .filter(item -> ProfileConstants.CATEGORY_EDUCATION.equalsIgnoreCase(item.category())
+                            || ProfileConstants.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
+                    .toList();
+            if (!items.isEmpty()) {
+                if (credentialName != null && !credentialName.isBlank()) {
+                    String target = credentialName.toLowerCase().trim();
+                    Optional<KnowledgeItem> match = items.stream()
+                            .filter(k -> k.title().toLowerCase().contains(target)
+                                    || k.content().toLowerCase().contains(target)
+                                    || k.tags().stream().anyMatch(t -> t.toLowerCase().contains(target)))
+                            .findFirst();
+                    if (match.isPresent()) {
+                        return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, List.of(match.get())));
+                    }
+                }
+                return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, items.size(), items));
+            }
+        } catch (Exception e) {
+            log.warn("[TOOL] [LINKEDIN-EDUCATION-DETAIL-FALLBACK] Live fetch unavailable ({}), serving verified curriculum baseline.", e.getMessage());
+        }
+
+        // Verified academic curriculum baseline
+        List<KnowledgeItem> baselineDetails = List.of(
+                KnowledgeItem.builder()
+                        .id("education-overview")
+                        .source(DataSourceType.LINKEDIN)
+                        .category(ProfileConstants.CATEGORY_EDUCATION)
+                        .title("Academic Degrees & Qualifications Overview")
+                        .content(ProfileConstants.EDUCATION_CONTENT.trim())
+                        .tags(List.of("education", "degrees", "overview", "sppu", "cdac", "iet", "qualifications"))
+                        .build(),
+                KnowledgeItem.builder()
+                        .id("education-pgdac-cdac")
+                        .source(DataSourceType.LINKEDIN)
+                        .category(ProfileConstants.CATEGORY_EDUCATION)
+                        .title("Post Graduate Diploma in Advanced Computing (PG-DAC) - CDAC ACTS")
+                        .content("Post Graduate Diploma in Advanced Computing (PG-DAC) from Institute of Emerging Technologies (IET), CDAC ACTS.\n" +
+                                "Specialized Curriculum: Object-Oriented Programming (Java, C++), Spring Framework & Spring Boot, Microservices, " +
+                                "Data Structures & Algorithms, Database Technologies (PostgreSQL, MySQL, SQL), Operating Systems, and Distributed Computing.")
+                        .tags(List.of("education", "pg-dac", "cdac", "iet", "java", "spring boot", "microservices"))
+                        .build(),
+                KnowledgeItem.builder()
+                        .id("education-be-sppu")
+                        .source(DataSourceType.LINKEDIN)
+                        .category(ProfileConstants.CATEGORY_EDUCATION)
+                        .title("Bachelor of Engineering (BE) in Electronics & Telecommunication - Pune University")
+                        .content("Bachelor of Engineering in Electronics & Telecommunication from Savitribai Phule Pune University (SPPU).\n" +
+                                "Core Domains: Object-Oriented Programming, Computer Networks, Embedded Systems, Microprocessors & Microcontrollers, and Software Engineering.")
+                        .tags(List.of("education", "be", "sppu", "pune university", "electronics", "telecommunication"))
+                        .build()
+        );
 
         if (credentialName != null && !credentialName.isBlank()) {
             String target = credentialName.toLowerCase().trim();
-            Optional<KnowledgeItem> match = items.stream()
+            Optional<KnowledgeItem> match = baselineDetails.stream()
                     .filter(k -> k.title().toLowerCase().contains(target)
                             || k.content().toLowerCase().contains(target)
                             || k.tags().stream().anyMatch(t -> t.toLowerCase().contains(target)))
                     .findFirst();
-
             if (match.isPresent()) {
-                return serializeToJson(ToolResponse.<List<KnowledgeItem>>builder()
-                        .status(ApiConstants.STATUS_SUCCESS)
-                        .source(DataSourceType.LINKEDIN)
-                        .count(1)
-                        .data(List.of(match.get()))
-                        .build());
+                return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, List.of(match.get())));
             }
         }
-
-        return serializeToJson(ToolResponse.<List<KnowledgeItem>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.LINKEDIN)
-                .count(items.size())
-                .data(items)
-                .build());
+        return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, baselineDetails.size(), baselineDetails));
     }
 
     /**
-     * Tier 1 (Summary): Returns high-level career headline and role.
+     * Returns high-level career headline and role.
      */
     @Tool(description = """
-            [TIER 1 - HIGH-LEVEL SUMMARY]
             Retrieves Pranit Bhangale's high-level professional headline, current role, and core engineering identity.
             
             Returns:
@@ -166,19 +225,28 @@ public class LinkedInTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'career-overview'")
     public String getCareerOverview() {
-        return serializeToJson(ToolResponse.<String>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.LINKEDIN)
-                .count(1)
-                .data("Pranit Bhangale – Full-Stack & Systems Engineer specializing in high-throughput distributed backends, clean architecture, and reactive systems.")
-                .build());
+        try {
+            List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge();
+            if (!items.isEmpty()) {
+                String headline = items.stream()
+                        .filter(k -> ProfileConstants.CATEGORY_PROFILE.equalsIgnoreCase(k.category()))
+                        .map(KnowledgeItem::content)
+                        .findFirst()
+                        .orElse(items.getFirst().content());
+                return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, headline));
+            }
+        } catch (Exception e) {
+            log.warn("[TOOL] [LINKEDIN-CAREER-FALLBACK] Live fetch unavailable ({}), serving verified career overview.", e.getMessage());
+        }
+
+        String headline = ProfileConstants.NAME + " — " + ProfileConstants.DEFAULT_BIO;
+        return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, headline));
     }
 
     /**
-     * Tier 2 (Deep Dive): Returns in-depth architecture principles and engineering philosophy.
+     * Returns in-depth architecture principles and engineering philosophy.
      */
     @Tool(description = """
-            [TIER 2 - DEEP DIVE]
             Retrieves Pranit Bhangale's in-depth software architecture principles, design patterns, and engineering philosophy.
             
             Returns:
@@ -197,20 +265,32 @@ public class LinkedInTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'architecture-philosophy'")
     public String getArchitecturePhilosophy() {
-        List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
-                .filter(item -> ProfileConstants.CATEGORY_EXPERIENCE.equalsIgnoreCase(item.category()))
-                .toList();
+        try {
+            List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
+                    .filter(item -> ProfileConstants.CATEGORY_EXPERIENCE.equalsIgnoreCase(item.category()))
+                    .toList();
+            if (!items.isEmpty()) {
+                return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, items.size(), items));
+            }
+        } catch (Exception e) {
+            log.warn("[TOOL] [LINKEDIN-PHILOSOPHY-FALLBACK] Live fetch unavailable ({}), serving verified philosophy baseline.", e.getMessage());
+        }
 
-        return serializeToJson(ToolResponse.<List<KnowledgeItem>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.LINKEDIN)
-                .count(items.size())
-                .data(items)
-                .build());
+        List<KnowledgeItem> baselinePhilosophy = List.of(
+                KnowledgeItem.builder()
+                        .id("career-philosophy-baseline")
+                        .source(DataSourceType.LINKEDIN)
+                        .category(ProfileConstants.CATEGORY_EXPERIENCE)
+                        .title("Core Engineering Philosophy & Architecture")
+                        .content(ProfileConstants.PHILOSOPHY_CONTENT.trim())
+                        .tags(List.of("clean-architecture", "solid", "tdd", "reactive-streams", "distributed-systems"))
+                        .build()
+        );
+        return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, baselinePhilosophy.size(), baselinePhilosophy));
     }
 
     /**
-     * Dedicated Tool: Returns verified certifications, diplomas, and academic credentials.
+     * Returns verified certifications, diplomas, and academic credentials.
      */
     @Tool(description = """
             [CERTIFICATIONS & CREDENTIALS]
@@ -234,35 +314,42 @@ public class LinkedInTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'certifications'")
     public String fetchCertifications() {
-        List<CertificationRecord> certs = List.of(
+        try {
+            List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
+                    .filter(item -> ProfileConstants.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
+                    .toList();
+            if (!items.isEmpty()) {
+                List<CertificationRecord> certs = items.stream()
+                        .map(k -> CertificationRecord.builder()
+                                .name(k.title())
+                                .issuingAuthority("LinkedIn Verified Body")
+                                .credentialType("Certification / Credential")
+                                .credentialId(k.id())
+                                .verificationUrl(ProfileConstants.LINKEDIN_URL)
+                                .details(k.content())
+                                .build())
+                        .toList();
+                return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, certs.size(), certs));
+            }
+        } catch (Exception e) {
+            log.warn("[TOOL] [LINKEDIN-CERTIFICATIONS-FALLBACK] Live fetch unavailable ({}), serving verified certification baseline.", e.getMessage());
+        }
+
+        List<CertificationRecord> baselineCerts = List.of(
                 CertificationRecord.builder()
                         .name("Post Graduate Diploma in Advanced Computing (PG-DAC)")
                         .issuingAuthority("Institute of Emerging Technologies (IET), CDAC ACTS")
-                        .credentialType("Post Graduate Diploma")
+                        .credentialType("Post Graduate Diploma / Accredited Credential")
                         .credentialId("CDAC-PGDAC-VERIFIED")
-                        .verificationUrl("https://www.cdac.in")
-                        .details("Advanced Java, Spring Boot, Data Structures & Algorithms, Distributed Systems, Database Technologies, Microservices.")
-                        .build(),
-                CertificationRecord.builder()
-                        .name("Bachelor of Engineering (BE) in Electronics & Telecommunication")
-                        .issuingAuthority("Savitribai Phule Pune University (SPPU)")
-                        .credentialType("Bachelor's Degree")
-                        .credentialId("SPPU-ENTC-VERIFIED")
-                        .verificationUrl("http://www.unipune.ac.in")
-                        .details("Embedded Systems, Microcontrollers, Signal Processing, Computer Networks, and Object-Oriented Programming.")
+                        .verificationUrl(ProfileConstants.LINKEDIN_URL)
+                        .details("Specialized post-graduate diploma covering Java, Spring Boot, Microservices, Systems Engineering, and Algorithms.")
                         .build()
         );
-
-        return serializeToJson(ToolResponse.<List<CertificationRecord>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.LINKEDIN)
-                .count(certs.size())
-                .data(certs)
-                .build());
+        return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, baselineCerts.size(), baselineCerts));
     }
 
     /**
-     * Dedicated Tool: Returns LinkedIn engineering posts, articles, and thought leadership.
+     * Returns LinkedIn engineering posts, articles, and thought leadership.
      */
     @Tool(description = """
             [LINKEDIN POSTS & ARTICLES]
@@ -286,39 +373,28 @@ public class LinkedInTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'linkedin-posts'")
     public String fetchLinkedInPosts() {
-        List<SocialPostRecord> posts = List.of(
-                SocialPostRecord.builder()
-                        .id("post-clean-architecture")
-                        .title("Why Clean Architecture Matters for Enterprise Spring Boot Backends")
-                        .platform("LinkedIn")
-                        .summary("A deep dive into separating domain business rules from database entities and external frameworks to ensure maintainable, testable microservices.")
-                        .url(ProfileConstants.LINKEDIN_URL)
-                        .topics(List.of("Clean Architecture", "SOLID", "Spring Boot", "Enterprise Systems"))
-                        .build(),
-                SocialPostRecord.builder()
-                        .id("post-realtime-websockets")
-                        .title("Building Resilient Real-Time Systems: STOMP over WebSockets")
-                        .platform("LinkedIn")
-                        .summary("Exploring bidirectional communication, presence heartbeat monitoring, and AES-256 payload encryption for scalable distributed chat applications.")
-                        .url(ProfileConstants.LINKEDIN_URL)
-                        .topics(List.of("WebSockets", "STOMP", "Java 21", "Encryption", "Real-Time"))
-                        .build(),
-                SocialPostRecord.builder()
-                        .id("post-reactive-concurrency")
-                        .title("Concurrency Evolution: Project Reactor and Virtual Threads in Java")
-                        .platform("LinkedIn")
-                        .summary("Comparing reactive backpressure streaming with Java 21 virtual threads for high-throughput I/O-intensive workloads.")
-                        .url(ProfileConstants.LINKEDIN_URL)
-                        .topics(List.of("Java 21", "Virtual Threads", "Reactive Streams", "Concurrency"))
-                        .build()
-        );
-
-        return serializeToJson(ToolResponse.<List<SocialPostRecord>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.LINKEDIN)
-                .count(posts.size())
-                .data(posts)
-                .build());
+        try {
+            List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
+                    .filter(item -> ProfileConstants.CATEGORY_POSTS.equalsIgnoreCase(item.category()))
+                    .toList();
+            if (items.isEmpty()) {
+                return serializeToJson(ToolResponse.notAvailable(DataSourceType.LINKEDIN, "LinkedIn posts and publications are currently not available."));
+            }
+            List<SocialPostRecord> posts = items.stream()
+                    .map(k -> SocialPostRecord.builder()
+                            .id(k.id())
+                            .title(k.title())
+                            .platform("LinkedIn")
+                            .summary(k.content())
+                            .url(ProfileConstants.LINKEDIN_URL)
+                            .topics(k.tags())
+                            .build())
+                    .toList();
+            return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, posts.size(), posts));
+        } catch (Exception e) {
+            log.error("[TOOL] [LINKEDIN-POSTS-ERROR] Failed to retrieve LinkedIn posts: {}", e.getMessage(), e);
+            return serializeToJson(ToolResponse.error(DataSourceType.LINKEDIN, "Something went wrong while retrieving posts from LinkedIn. Please try again later."));
+        }
     }
 
     /**
@@ -345,25 +421,26 @@ public class LinkedInTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'linkedin-profile'")
     public String fetchLinkedInProfile() {
-        return serializeToJson(ToolResponse.<java.util.Map<String, String>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.LINKEDIN)
-                .count(1)
-                .data(java.util.Map.of(
-                        "name", ProfileConstants.NAME,
-                        "headline", "Full-Stack & Systems Engineer | Java 21, Spring Boot, Reactive Backends & Distributed Systems",
-                        "profileUrl", ProfileConstants.LINKEDIN_URL,
-                        "coreCompetencies", "Spring Boot, Clean Architecture, Distributed Systems, Reactive Streaming, STOMP WebSockets"
-                ))
-                .build());
-    }
-
-    private <T> String serializeToJson(ToolResponse<T> response) {
         try {
-            return this.objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
-        } catch (JsonProcessingException e) {
-            log.error("[TOOL] [LINKEDIN-SERIALIZE-ERROR] Failed to serialize LinkedIn tool response: {}", e.getMessage(), e);
-            return "{\"status\":\"" + ApiConstants.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
+            List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge();
+            if (!items.isEmpty()) {
+                KnowledgeItem profileItem = items.getFirst();
+                Map<String, String> data = Map.of(
+                        "title", profileItem.title(),
+                        "summary", profileItem.content(),
+                        "profileUrl", ProfileConstants.LINKEDIN_URL
+                );
+                return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, data));
+            }
+        } catch (Exception e) {
+            log.warn("[TOOL] [LINKEDIN-PROFILE-FALLBACK] Live fetch unavailable ({}), serving verified profile baseline.", e.getMessage());
         }
+
+        Map<String, String> data = Map.of(
+                "title", ProfileConstants.NAME + " — " + ProfileConstants.DEFAULT_BIO,
+                "summary", ProfileConstants.PHILOSOPHY_CONTENT.trim(),
+                "profileUrl", ProfileConstants.LINKEDIN_URL
+        );
+        return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, data));
     }
 }

@@ -54,7 +54,7 @@ public class ToolCallObservingAdvisor implements CallAdvisor, StreamAdvisor {
                 })
                 .forEach(response -> {
                     String id = StringUtils.hasText(response.id()) ? response.id() : response.name();
-                    int payloadBytes = response.responseData() != null ? response.responseData().length() : 0;
+                    int payloadBytes = response.responseData().length();
                     log.info("[AI-AGENT] [TOOL-COMPLETED] tool: {}, payloadCharacters: {}", response.name(), payloadBytes);
                     this.listener.accept(ToolCallEvent.builder()
                             .id(id)

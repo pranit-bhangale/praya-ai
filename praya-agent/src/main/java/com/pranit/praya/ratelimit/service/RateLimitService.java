@@ -28,7 +28,7 @@ public class RateLimitService implements RateLimiter {
 
     public static final long DEFAULT_IDLE_EVICTION_THRESHOLD_MS = 120_000L;
 
-    private final Map<String, InMemorySlidingWindowBucket> buckets = new ConcurrentHashMap<>();
+    private final Map<String, SlidingWindowBucket> buckets = new ConcurrentHashMap<>();
     private final Map<String, RateLimitPolicy> domainPolicies = new ConcurrentHashMap<>();
     private final Map<String, Long> lastAcquiredTimestamps = new ConcurrentHashMap<>();
     private final Map<String, Long> domainMinDelays = new ConcurrentHashMap<>();
@@ -78,8 +78,8 @@ public class RateLimitService implements RateLimiter {
         final String bucketKey = "rl:{" + policy.name() + ":tool:" + key + "}";
 
         try {
-            InMemorySlidingWindowBucket bucket = this.buckets.computeIfAbsent(
-                    bucketKey, _ -> new InMemorySlidingWindowBucket()
+            SlidingWindowBucket bucket = this.buckets.computeIfAbsent(
+                    bucketKey, _ -> new SlidingWindowBucket()
             );
 
             bucket.acquire(policy, permits);
@@ -135,8 +135,8 @@ public class RateLimitService implements RateLimiter {
         final Timer.Sample sample = this.metrics.startTimer();
 
         try {
-            InMemorySlidingWindowBucket bucket = this.buckets.computeIfAbsent(
-                    bucketKey, _ -> new InMemorySlidingWindowBucket()
+            SlidingWindowBucket bucket = this.buckets.computeIfAbsent(
+                    bucketKey, _ -> new SlidingWindowBucket()
             );
 
             RateLimitResult result = bucket.check(policy);

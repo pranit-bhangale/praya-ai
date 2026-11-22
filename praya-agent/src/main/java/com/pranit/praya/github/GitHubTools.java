@@ -23,7 +23,6 @@ import java.util.Optional;
 
 /**
  * AI Tool specializing in Pranit's GitHub ecosystem.
- * Implements two-tier progressive disclosure: high-level summaries and on-demand deep dives.
  */
 @Slf4j
 @Component
@@ -34,10 +33,9 @@ public class GitHubTools {
     private final ObjectMapper objectMapper;
 
     /**
-     * Tier 1 (Summary): Returns high-level project names and 1-line summaries.
+     * Returns high-level project names and 1-line summaries.
      */
     @Tool(description = """
-            [TIER 1 - HIGH-LEVEL SUMMARY]
             Retrieves a concise catalog of Pranit Bhangale's featured software engineering projects.
             
             Returns:
@@ -59,17 +57,19 @@ public class GitHubTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_PROJECTS, key = "'project-summaries'")
     public String listProjectSummaries() {
-        List<ProjectRecord> allProjects = this.gitHubSource.fetchProjects();
-        List<ProjectSummary> summaries = allProjects.stream()
-                .map(ProjectSummary::from)
-                .toList();
-
-        return serializeToJson(ToolResponse.<List<ProjectSummary>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.GITHUB)
-                .count(summaries.size())
-                .data(summaries)
-                .build());
+        try {
+            List<ProjectRecord> allProjects = this.gitHubSource.fetchProjects();
+            if (allProjects.isEmpty()) {
+                return serializeToJson(ToolResponse.notAvailable(DataSourceType.GITHUB, "Project summaries are currently not available from GitHub."));
+            }
+            List<ProjectSummary> summaries = allProjects.stream()
+                    .map(ProjectSummary::from)
+                    .toList();
+            return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, summaries.size(), summaries));
+        } catch (Exception e) {
+            log.error("[TOOL] [GITHUB-PROJECTS-ERROR] Failed to fetch live project summaries: {}", e.getMessage(), e);
+            return serializeToJson(ToolResponse.error(DataSourceType.GITHUB, "Something went wrong while retrieving projects from GitHub. Please try again later."));
+        }
     }
 
     private <T> String serializeToJson(ToolResponse<T> response) {
@@ -82,10 +82,9 @@ public class GitHubTools {
     }
 
     /**
-     * Tier 2 (Deep Dive): Returns complete architecture, tech stack, highlights, and repo link for a specific project.
+     * Returns complete architecture, tech stack, highlights, and repo link for a specific project.
      */
     @Tool(description = """
-            [TIER 2 - DEEP DIVE]
             Retrieves exhaustive architectural specifications, key technical highlights, complete tech stack,
             and the verified GitHub repository URL for a single specified project.
             
@@ -114,48 +113,44 @@ public class GitHubTools {
                     
                     Accepted Identifiers and Aliases:
                       - 'open-connect' or 'Open-Connect Live Engine' : Full-duplex real-time STOMP/WebSocket chat system
-                      - 'habit-tracker' or 'Habit Tracker Web App'  : Full-stack habit & routine tracking platform (React + .NET Web API)
-                      - 'todo-app' or 'Spring MVC To-Do App'        : Production task-management backend (Spring Boot + JPA)
-                      - 'cleaning-bot' or 'Smart Cleaning Bot'      : Autonomous IoT floor-cleaning robot (ESP32 + FreeRTOS + C++)
-                      - 'praya-ai'                                  : Reactive multi-agent AI assistant
+                      - 'todo-app' or 'Spring MVC To-Do App'         : Production task-management backend (Spring Boot + JPA)
+                      - 'praya-ai'                                   : Reactive multi-agent AI assistant
                     
                     Format:
                       Case-insensitive string. Punctuation and spaces are stripped during matching.
-                      Example values: "open-connect", "habit-tracker", "todo-app", "cleaning-bot".
+                      Example values: "open-connect", "todo-app", "cleaning-bot".
                     """) String projectName
     ) {
         if (projectName == null || projectName.isBlank()) {
-            return "{\"status\":\"ERROR\",\"message\":\"Please specify a project name to view details.\"}";
+            return serializeToJson(ToolResponse.notAvailable(DataSourceType.GITHUB, "Please specify a project name to view details."));
         }
-
-        String target = projectName.toLowerCase().replaceAll("[^a-z0-9]", "");
-        List<ProjectRecord> allProjects = this.gitHubSource.fetchProjects();
-
-        Optional<ProjectRecord> match = allProjects.stream()
-                .filter(p -> {
-                    String cleanId = p.id().replaceAll("[^a-z0-9]", "");
-                    String cleanName = p.name().toLowerCase().replaceAll("[^a-z0-9]", "");
-                    return cleanId.contains(target) || cleanName.contains(target) || target.contains(cleanId);
-                })
-                .findFirst();
-
-        if (match.isPresent()) {
-            return serializeToJson(ToolResponse.<ProjectRecord>builder()
-                    .status(ApiConstants.STATUS_SUCCESS)
-                    .source(DataSourceType.GITHUB)
-                    .count(1)
-                    .data(match.get())
-                    .build());
+        try {
+            String target = projectName.toLowerCase().replaceAll("[^a-z0-9]", "");
+            List<ProjectRecord> allProjects = this.gitHubSource.fetchProjects();
+            if (allProjects.isEmpty()) {
+                return serializeToJson(ToolResponse.notAvailable(DataSourceType.GITHUB, "Project details are currently not available from GitHub."));
+            }
+            Optional<ProjectRecord> match = allProjects.stream()
+                    .filter(p -> {
+                        String cleanId = p.id().replaceAll("[^a-z0-9]", "");
+                        String cleanName = p.name().toLowerCase().replaceAll("[^a-z0-9]", "");
+                        return cleanId.contains(target) || cleanName.contains(target) || target.contains(cleanId);
+                    })
+                    .findFirst();
+            if (match.isPresent()) {
+                return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, 1, match.get()));
+            }
+            return serializeToJson(ToolResponse.notAvailable(DataSourceType.GITHUB, "No live project found matching '" + projectName + "'."));
+        } catch (Exception e) {
+            log.error("[TOOL] [GITHUB-PROJECT-DETAIL-ERROR] Failed to fetch project details for [{}]: {}", projectName, e.getMessage(), e);
+            return serializeToJson(ToolResponse.error(DataSourceType.GITHUB, "Something went wrong while retrieving project details from GitHub. Please try again later."));
         }
-
-        return "{\"status\":\"NOT_FOUND\",\"message\":\"No project found matching '" + projectName + "'. Available projects: Open-Connect Live Engine, Habit Tracker Web App, Spring MVC To-Do App, Smart Cleaning Bot.\"}";
     }
 
     /**
-     * Tier 1 (Summary): Returns high-level core skills.
+     * Returns high-level core skills.
      */
     @Tool(description = """
-            [TIER 1 - HIGH-LEVEL SUMMARY]
             Retrieves a high-level summary of Pranit Bhangale's primary programming languages and foundational tech stack.
             
             Returns:
@@ -172,23 +167,35 @@ public class GitHubTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'skills-summary'")
     public String getSkillsSummary() {
-        List<KnowledgeItem> skills = this.gitHubSource.fetchKnowledge().stream()
-                .filter(k -> ProfileConstants.CATEGORY_SKILLS.equalsIgnoreCase(k.category()))
-                .toList();
+        try {
+            List<KnowledgeItem> skills = this.gitHubSource.fetchKnowledge().stream()
+                    .filter(k -> ProfileConstants.CATEGORY_SKILLS.equalsIgnoreCase(k.category()))
+                    .toList();
+            if (!skills.isEmpty()) {
+                return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, skills.size(), skills));
+            }
+        } catch (Exception e) {
+            log.warn("[TOOL] [GITHUB-SKILLS-FALLBACK] Live fetch unavailable ({}), serving verified skills summary.", e.getMessage());
+        }
 
-        return serializeToJson(ToolResponse.<List<KnowledgeItem>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.GITHUB)
-                .count(skills.size())
-                .data(skills)
-                .build());
+        // Verified core skills summary baseline
+        List<KnowledgeItem> baselineSkills = List.of(
+                KnowledgeItem.builder()
+                        .id("skills-summary-baseline")
+                        .source(DataSourceType.GITHUB)
+                        .category(ProfileConstants.CATEGORY_SKILLS)
+                        .title("Core Technical Stack & Languages")
+                        .content(ProfileConstants.TECH_STACK_CONTENT.trim())
+                        .tags(List.of("java", "spring boot", "react", "docker", "aws", "postgresql", "redis"))
+                        .build()
+        );
+        return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, baselineSkills.size(), baselineSkills));
     }
 
     /**
-     * Tier 2 (Deep Dive): Returns complete technical breakdown.
+     * Returns complete technical breakdown.
      */
     @Tool(description = """
-            [TIER 2 - DEEP DIVE]
             Retrieves an exhaustive, categorized technical breakdown of Pranit Bhangale's complete engineering repertoire.
             
             Returns:
@@ -208,13 +215,54 @@ public class GitHubTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'skills-deep-dive'")
     public String getSkillsDeepDive() {
-        List<KnowledgeItem> allKnowledge = this.gitHubSource.fetchKnowledge();
-        return serializeToJson(ToolResponse.<List<KnowledgeItem>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.GITHUB)
-                .count(allKnowledge.size())
-                .data(allKnowledge)
-                .build());
+        try {
+            List<KnowledgeItem> allKnowledge = this.gitHubSource.fetchKnowledge().stream()
+                    .filter(k -> ProfileConstants.CATEGORY_SKILLS.equalsIgnoreCase(k.category())
+                            || ProfileConstants.CATEGORY_EXPERIENCE.equalsIgnoreCase(k.category()))
+                    .toList();
+            if (!allKnowledge.isEmpty()) {
+                return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, allKnowledge.size(), allKnowledge));
+            }
+        } catch (Exception e) {
+            log.warn("[TOOL] [GITHUB-DEEPDIVE-FALLBACK] Live fetch unavailable ({}), serving verified deep dive.", e.getMessage());
+        }
+        List<KnowledgeItem> baselineDeepDive = List.of(
+                KnowledgeItem.builder()
+                        .id("skills-deepdive-languages")
+                        .source(DataSourceType.GITHUB)
+                        .category(ProfileConstants.CATEGORY_SKILLS)
+                        .title("Programming Languages & Core Runtimes")
+                        .content("Java (21, 25), Python, TypeScript, JavaScript, SQL, C++.\n" +
+                                "Core competencies in JVM internals, memory management, garbage collection tuning, multithreading, and concurrent primitives.")
+                        .tags(List.of("languages", "java", "python", "typescript", "c++", "sql"))
+                        .build(),
+                KnowledgeItem.builder()
+                        .id("skills-deepdive-frameworks")
+                        .source(DataSourceType.GITHUB)
+                        .category(ProfileConstants.CATEGORY_SKILLS)
+                        .title("Frameworks & Systems Architecture")
+                        .content("Spring Boot 3/4, Spring AI, Spring WebFlux, Project Reactor, Hibernate/JPA, React.js, ASP.NET Web API, RESTful APIs, STOMP over WebSockets.\n" +
+                                "Reactive and event-driven patterns with non-blocking I/O.")
+                        .tags(List.of("frameworks", "spring boot", "spring ai", "react", "websockets"))
+                        .build(),
+                KnowledgeItem.builder()
+                        .id("skills-deepdive-infrastructure")
+                        .source(DataSourceType.GITHUB)
+                        .category(ProfileConstants.CATEGORY_SKILLS)
+                        .title("Cloud, Persistence & DevOps Infrastructure")
+                        .content("PostgreSQL, MySQL, Redis (caching and pub/sub), Docker containerization, AWS, Render, Vercel, Git/GitHub, CI/CD automated deployment pipelines.")
+                        .tags(List.of("infrastructure", "docker", "aws", "postgresql", "redis", "ci/cd"))
+                        .build(),
+                KnowledgeItem.builder()
+                        .id("skills-deepdive-practices")
+                        .source(DataSourceType.GITHUB)
+                        .category(ProfileConstants.CATEGORY_EXPERIENCE)
+                        .title("Engineering Practices & Architectural Philosophy")
+                        .content(ProfileConstants.PHILOSOPHY_CONTENT.trim())
+                        .tags(List.of("clean-architecture", "solid", "tdd", "reactive-streams"))
+                        .build()
+        );
+        return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, baselineDeepDive.size(), baselineDeepDive));
     }
 
     /**
@@ -244,24 +292,26 @@ public class GitHubTools {
             """)
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_PROJECTS, key = "'github-repos'")
     public String fetchGitHubRepositories() {
-        List<ProjectRecord> allProjects = this.gitHubSource.fetchProjects();
-        List<GitHubRepoRecord> repos = allProjects.stream()
-                .map(p -> GitHubRepoRecord.builder()
-                        .name(p.name())
-                        .description(p.description())
-                        .language(p.techStack() != null && !p.techStack().isEmpty() ? p.techStack().get(0) : "Java")
-                        .stars(0)
-                        .forks(0)
-                        .htmlUrl(p.repoUrl())
-                        .liveUrl(p.liveUrl())
-                        .build())
-                .toList();
-
-        return serializeToJson(ToolResponse.<List<GitHubRepoRecord>>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
-                .source(DataSourceType.GITHUB)
-                .count(repos.size())
-                .data(repos)
-                .build());
+        try {
+            List<ProjectRecord> allProjects = this.gitHubSource.fetchProjects();
+            if (allProjects.isEmpty()) {
+                return serializeToJson(ToolResponse.notAvailable(DataSourceType.GITHUB, "Public GitHub repository data is currently not available."));
+            }
+            List<GitHubRepoRecord> repos = allProjects.stream()
+                    .map(p -> GitHubRepoRecord.builder()
+                            .name(p.name())
+                            .description(p.description())
+                            .language(p.techStack() != null && !p.techStack().isEmpty() ? p.techStack().get(0) : "Java")
+                            .stars(0)
+                            .forks(0)
+                            .htmlUrl(p.repoUrl())
+                            .liveUrl(p.liveUrl())
+                            .build())
+                    .toList();
+            return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, repos.size(), repos));
+        } catch (Exception e) {
+            log.error("[TOOL] [GITHUB-REPOS-ERROR] Failed to retrieve GitHub repositories: {}", e.getMessage(), e);
+            return serializeToJson(ToolResponse.error(DataSourceType.GITHUB, "Something went wrong while retrieving repositories from GitHub. Please try again later."));
+        }
     }
 }

@@ -15,7 +15,6 @@ import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -49,19 +48,16 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
         final long startTime = System.currentTimeMillis();
         log.info("[DATA-SOURCE] [PORTFOLIO-FETCH-START] Initiating scrape for portfolio website: {}", this.portfolioUrl);
         List<KnowledgeItem> items = new ArrayList<>();
-
         try {
             Document doc = Jsoup.connect(this.portfolioUrl)
                     .userAgent(ApiConstants.BROWSER_USER_AGENT)
                     .timeout(6000)
                     .followRedirects(true)
                     .get();
-
             String title = doc.title();
             String metaDesc = Optional.ofNullable(doc.selectFirst("meta[name=description]"))
                     .map(e -> e.attr("content"))
                     .orElse("");
-
             Elements paragraphs = doc.select("p");
             StringBuilder bodyText = new StringBuilder();
             for (Element p : paragraphs) {
@@ -70,7 +66,6 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
                     bodyText.append(text).append("\n\n");
                 }
             }
-
             if (!bodyText.isEmpty() || !metaDesc.isBlank()) {
                 String content = (metaDesc.isBlank() ? "" : metaDesc + "\n\n") + bodyText.toString().trim();
                 items.add(KnowledgeItem.builder()
@@ -82,8 +77,6 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
                         .tags(List.of("portfolio", "bio", "vercel", "live", "about"))
                         .build());
             }
-
-            // Extract links
             Elements links = doc.select("a[href]");
             List<String> portfolioLinks = new ArrayList<>();
             for (Element link : links) {
@@ -93,7 +86,6 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
                     portfolioLinks.add(anchorText.isBlank() ? href : anchorText + ": " + href);
                 }
             }
-
             if (!portfolioLinks.isEmpty()) {
                 items.add(KnowledgeItem.builder()
                         .id("portfolio-web-links")
@@ -101,26 +93,16 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
                         .category(ProfileConstants.CATEGORY_CONTACT)
                         .title("Portfolio Links & Contact")
                         .content(String.join("\n", portfolioLinks))
-                        .tags(List.of("links", "portfolio", "social", "contact"))
+                        .tags(List.of("portfolio", "links", "contact"))
                         .build());
             }
 
             final long durationMs = System.currentTimeMillis() - startTime;
-            log.info("[DATA-SOURCE] [PORTFOLIO-FETCH-SUCCESS] Scraped portfolio sections successfully (items: {}, durationMs: {})",
+            log.info("[DATA-SOURCE] [PORTFOLIO-FETCH-SUCCESS] Scraped live portfolio sections successfully (items: {}, durationMs: {})",
                     items.size(), durationMs);
-
-        } catch (IOException e) {
-            log.warn("[DATA-SOURCE] [PORTFOLIO-FETCH-FALLBACK] Scrape failed for {} (reason: {}). Loading static portfolio baseline.", this.portfolioUrl, e.getMessage());
-            items.add(KnowledgeItem.builder()
-                    .id("portfolio-baseline-bio")
-                    .source(DataSourceType.PORTFOLIO_WEBSITE)
-                    .category(ProfileConstants.CATEGORY_BIO)
-                    .title(ProfileConstants.NAME + " — Portfolio Overview")
-                    .content(ProfileConstants.DEFAULT_BIO + " Live portfolio: " + this.portfolioUrl)
-                    .tags(List.of("portfolio", "bio", "baseline", "backend"))
-                    .build());
+        } catch (Exception e) {
+            log.warn("[DATA-SOURCE] [PORTFOLIO-FETCH-ERROR] Scrape failed for {} (reason: {})", this.portfolioUrl, e.getMessage());
         }
-
         return items;
     }
 

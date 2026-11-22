@@ -10,8 +10,6 @@ import java.util.List;
 
 /**
  * Composite Aggregator coordinating all registered KnowledgeSource strategies.
- * Demonstrates Open/Closed Principle (OCP): New sources are auto-discovered without
- * modifying this aggregator or downstream consumers.
  */
 @Slf4j
 @Service

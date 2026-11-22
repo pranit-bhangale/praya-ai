@@ -6,7 +6,6 @@ import org.springframework.context.annotation.Configuration;
 
 /**
  * Configuration enabling declarative annotation-driven rate limiting.
- * Can be disabled in tests or environments via praya.ratelimit.enabled=false.
  */
 @Configuration
 @ConditionalOnProperty(name = "praya.ratelimit.enabled", havingValue = "true", matchIfMissing = true)

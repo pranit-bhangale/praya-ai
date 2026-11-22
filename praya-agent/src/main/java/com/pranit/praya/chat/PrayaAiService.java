@@ -50,7 +50,6 @@ public class PrayaAiService implements AiService {
                     ChatEventStream.sse(StreamEventConstants.EVENT_DONE, "")
             );
         }
-
         final String cachedAnswer = this.agentCacheService.getCachedAnswer(prompt);
         if (cachedAnswer != null && !cachedAnswer.isBlank()) {
             final long latencyMs = System.currentTimeMillis() - startTime;
@@ -60,7 +59,6 @@ public class PrayaAiService implements AiService {
                     Flux.fromArray(cachedAnswer.split("(?<=\\s)|(?<=\\n)")).map(events::token);
             return events.mergeWith(cachedStream);
         }
-
         log.info("[AI-AGENT] [CACHE-MISS] conversationId: {}, initiating model inference", conversationId);
         final StringBuilder answerAccumulator = new StringBuilder();
         final Flux<ServerSentEvent<String>> answerTokens = this.chatClient
@@ -75,9 +73,15 @@ public class PrayaAiService implements AiService {
                     final String fullResponse = answerAccumulator.toString();
                     final long durationMs = System.currentTimeMillis() - startTime;
                     if (!fullResponse.isBlank()) {
-                        this.agentCacheService.putAnswer(prompt, fullResponse);
-                        log.info("[AI-AGENT] [RESPONSE-COMPLETE] conversationId: {}, generatedCharacters: {}, durationMs: {}",
-                                conversationId, fullResponse.length(), durationMs);
+                        try {
+                            this.guardrailService.validateOutput(fullResponse);
+                            this.agentCacheService.putAnswer(prompt, fullResponse);
+                            log.info("[AI-AGENT] [RESPONSE-COMPLETE] conversationId: {}, generatedCharacters: {}, durationMs: {}",
+                                    conversationId, fullResponse.length(), durationMs);
+                        } catch (GuardrailViolationException ex) {
+                            log.warn("[AI-AGENT] [OUTPUT-BLOCKED] conversationId: {}, output validation failed: {}",
+                                    conversationId, ex.getMessage());
+                        }
                     }
                 })
                 .map(events::token);

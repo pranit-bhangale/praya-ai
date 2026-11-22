@@ -40,105 +40,29 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
 
     @Override
     public @NonNull ChatClientResponse adviseCall(@NonNull ChatClientRequest request, CallAdvisorChain chain) {
-        if (!this.properties.enabled()) {
-            return chain.nextCall(request);
-        }
-
-        // 1. Strict Input Validation (Before Model Invocation)
+        if (!this.properties.enabled()) return chain.nextCall(request);
         final String input = request.prompt().getContents();
-        final GuardrailResult inputResult = this.guardrailService.evaluate(input, ValidationPhase.INPUT);
-        if (!inputResult.valid()) {
-            log.warn("[GUARDRAIL] [INPUT-BLOCKED] Call phase violation: {}", inputResult.getFirstViolationMessage());
-            if (this.properties.strictMode()) {
-                throw new GuardrailViolationException(
-                        ValidationPhase.INPUT,
-                        inputResult.violations(),
-                        inputResult.getFirstViolationMessage()
-                );
+        if (this.properties.strictMode()) {
+            this.guardrailService.validateInput(input);
+        } else {
+            final GuardrailResult inputResult = this.guardrailService.evaluate(input, ValidationPhase.INPUT);
+            if (!inputResult.valid()) {
+                log.warn("[GUARDRAIL] [INPUT-BLOCKED] Call phase violation: {}", inputResult.getFirstViolationMessage());
+                return createFallbackResponse(request, inputResult.getFirstViolationMessage());
             }
-            return createFallbackResponse(request, inputResult.getFirstViolationMessage());
         }
-
-        // 2. Invoke Next In Chain (LLM Call)
         final ChatClientResponse response = chain.nextCall(request);
-
-        // 3. Strict Output Validation (After Model Generation)
         final String outputText = extractResponseText(response);
-        final GuardrailResult outputResult = this.guardrailService.evaluate(outputText, ValidationPhase.OUTPUT);
-        if (!outputResult.valid()) {
-            log.warn("[GUARDRAIL] [OUTPUT-BLOCKED] Call generation violation: {}", outputResult.getFirstViolationMessage());
-            if (this.properties.strictMode()) {
-                throw new GuardrailViolationException(
-                        ValidationPhase.OUTPUT,
-                        outputResult.violations(),
-                        outputResult.getFirstViolationMessage()
-                );
+        if (this.properties.strictMode()) {
+            this.guardrailService.validateOutput(outputText);
+        } else {
+            final GuardrailResult outputResult = this.guardrailService.evaluate(outputText, ValidationPhase.OUTPUT);
+            if (!outputResult.valid()) {
+                log.warn("[GUARDRAIL] [OUTPUT-BLOCKED] Call generation violation: {}", outputResult.getFirstViolationMessage());
+                return createFallbackResponse(request, outputResult.getFirstViolationMessage());
             }
-            return createFallbackResponse(request, outputResult.getFirstViolationMessage());
         }
-
         return response;
-    }
-
-    @Override
-    public @NonNull Flux<ChatClientResponse> adviseStream(@NonNull ChatClientRequest request, StreamAdvisorChain chain) {
-        if (!this.properties.enabled()) {
-            return chain.nextStream(request);
-        }
-
-        // 1. Strict Input Validation (Pre-stream)
-        final String input = request.prompt().getContents();
-        final GuardrailResult inputResult = this.guardrailService.evaluate(input, ValidationPhase.INPUT);
-        if (!inputResult.valid()) {
-            log.warn("[GUARDRAIL] [INPUT-BLOCKED] Pre-stream violation: {}", inputResult.getFirstViolationMessage());
-            if (this.properties.strictMode()) {
-                return Flux.error(new GuardrailViolationException(
-                        ValidationPhase.INPUT,
-                        inputResult.violations(),
-                        inputResult.getFirstViolationMessage()
-                ));
-            }
-            return Flux.just(createFallbackResponse(request, inputResult.getFirstViolationMessage()));
-        }
-
-        // 2. Stream chunks with output inspection
-        final StringBuilder buffer = new StringBuilder();
-        return chain.nextStream(request).flatMap(chunk -> {
-            String chunkText = extractResponseText(chunk);
-            if (!chunkText.isEmpty()) {
-                buffer.append(chunkText);
-                GuardrailResult outputResult = this.guardrailService.evaluate(buffer.toString(), ValidationPhase.OUTPUT);
-                if (!outputResult.valid()) {
-                    log.warn("[GUARDRAIL] [OUTPUT-BLOCKED] Streaming buffer violation: {}", outputResult.getFirstViolationMessage());
-                    if (this.properties.strictMode()) {
-                        return Flux.error(new GuardrailViolationException(
-                                ValidationPhase.OUTPUT,
-                                outputResult.violations(),
-                                outputResult.getFirstViolationMessage()
-                        ));
-                    }
-                    return Flux.just(createFallbackResponse(request, outputResult.getFirstViolationMessage()));
-                }
-            }
-            return Flux.just(chunk);
-        });
-    }
-
-    private String extractResponseText(ChatClientResponse response) {
-        if (response == null || response.chatResponse() == null) {
-            return "";
-        }
-        ChatResponse chatResponse = response.chatResponse();
-        if (chatResponse.getResults() == null) {
-            return "";
-        }
-        StringBuilder sb = new StringBuilder();
-        for (Generation generation : chatResponse.getResults()) {
-            if (generation.getOutput() != null && generation.getOutput().getText() != null) {
-                sb.append(generation.getOutput().getText());
-            }
-        }
-        return sb.toString();
     }
 
     private ChatClientResponse createFallbackResponse(ChatClientRequest request, String message) {
@@ -148,6 +72,58 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
                         .build())
                 .context(Map.copyOf(request.context()))
                 .build();
+    }
+
+    private String extractResponseText(ChatClientResponse response) {
+        if (response == null || response.chatResponse() == null) return "";
+        ChatResponse chatResponse = response.chatResponse();
+        StringBuilder sb = new StringBuilder();
+        for (Generation generation : chatResponse.getResults()) {
+            if (generation.getOutput().getText() != null) sb.append(generation.getOutput().getText());
+        }
+        return sb.toString();
+    }
+
+    @Override
+    public @NonNull Flux<ChatClientResponse> adviseStream(@NonNull ChatClientRequest request, StreamAdvisorChain chain) {
+        if (!this.properties.enabled()) return chain.nextStream(request);
+        final String input = request.prompt().getContents();
+        if (this.properties.strictMode()) {
+            try {
+                this.guardrailService.validateInput(input);
+            } catch (GuardrailViolationException ex) {
+                log.warn("[GUARDRAIL] [INPUT-BLOCKED] Pre-stream violation: {}", ex.getMessage());
+                return Flux.error(ex);
+            }
+        } else {
+            final GuardrailResult inputResult = this.guardrailService.evaluate(input, ValidationPhase.INPUT);
+            if (!inputResult.valid()) {
+                log.warn("[GUARDRAIL] [INPUT-BLOCKED] Pre-stream violation: {}", inputResult.getFirstViolationMessage());
+                return Flux.just(createFallbackResponse(request, inputResult.getFirstViolationMessage()));
+            }
+        }
+        final StringBuilder buffer = new StringBuilder();
+        return chain.nextStream(request).flatMap(chunk -> {
+            String chunkText = extractResponseText(chunk);
+            if (!chunkText.isEmpty()) {
+                buffer.append(chunkText);
+                if (this.properties.strictMode()) {
+                    try {
+                        this.guardrailService.validateOutput(buffer.toString());
+                    } catch (GuardrailViolationException ex) {
+                        log.warn("[GUARDRAIL] [OUTPUT-BLOCKED] Streaming buffer violation: {}", ex.getMessage());
+                        return Flux.error(ex);
+                    }
+                } else {
+                    GuardrailResult outputResult = this.guardrailService.evaluate(buffer.toString(), ValidationPhase.OUTPUT);
+                    if (!outputResult.valid()) {
+                        log.warn("[GUARDRAIL] [OUTPUT-BLOCKED] Streaming buffer violation: {}", outputResult.getFirstViolationMessage());
+                        return Flux.just(createFallbackResponse(request, outputResult.getFirstViolationMessage()));
+                    }
+                }
+            }
+            return Flux.just(chunk);
+        });
     }
 
     @Override

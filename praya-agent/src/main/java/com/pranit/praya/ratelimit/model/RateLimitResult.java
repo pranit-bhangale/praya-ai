@@ -4,10 +4,6 @@ import lombok.Builder;
 
 /**
  * Result of evaluating a rate limit request.
- *
- * @param allowed      True if the request is allowed, false if rejected
- * @param retryAfterMs Milliseconds until the client is permitted to retry
- * @param remaining    Remaining requests permitted within the current window (-1 if unknown/fail-open)
  */
 @Builder
 public record RateLimitResult(

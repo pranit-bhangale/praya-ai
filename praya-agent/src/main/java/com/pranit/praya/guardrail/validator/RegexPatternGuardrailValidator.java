@@ -26,7 +26,8 @@ public class RegexPatternGuardrailValidator implements GuardrailValidator {
     public RegexPatternGuardrailValidator(GuardrailProperties properties) {
         this.properties = properties;
         this.compiledInputPatterns = properties.inputPatterns() != null
-                ? properties.inputPatterns().stream()
+                ? properties.inputPatterns()
+                .stream()
                 .filter(StringUtils::hasText)
                 .map(p -> Pattern.compile(p, Pattern.CASE_INSENSITIVE | Pattern.DOTALL))
                 .toList()
@@ -42,29 +43,18 @@ public class RegexPatternGuardrailValidator implements GuardrailValidator {
     @Override
     public boolean supports(ValidationPhase phase) {
         return phase == ValidationPhase.INPUT
-                ? !this.compiledInputPatterns.isEmpty()
-                : !this.compiledOutputPatterns.isEmpty();
+                ? !this.compiledInputPatterns.isEmpty() : !this.compiledOutputPatterns.isEmpty();
     }
 
     @Override
     public GuardrailResult validate(String text, ValidationPhase phase) {
-        if (!StringUtils.hasText(text)) {
-            return GuardrailResult.success(text);
-        }
-
+        if (!StringUtils.hasText(text)) return GuardrailResult.success(text);
         final List<Pattern> targetPatterns = (phase == ValidationPhase.INPUT)
-                ? this.compiledInputPatterns
-                : this.compiledOutputPatterns;
-
-        if (targetPatterns.isEmpty()) {
-            return GuardrailResult.success(text);
-        }
-
+                ? this.compiledInputPatterns : this.compiledOutputPatterns;
+        if (targetPatterns.isEmpty()) return GuardrailResult.success(text);
         final List<GuardrailViolation> violations = new ArrayList<>();
         final String fallbackMessage = (phase == ValidationPhase.INPUT)
-                ? this.properties.inputViolationMessage()
-                : this.properties.outputViolationMessage();
-
+                ? this.properties.inputViolationMessage() : this.properties.outputViolationMessage();
         for (Pattern pattern : targetPatterns) {
             Matcher matcher = pattern.matcher(text);
             if (matcher.find()) {
@@ -74,18 +64,10 @@ public class RegexPatternGuardrailValidator implements GuardrailValidator {
                         pattern.pattern(),
                         fallbackMessage
                 ));
-
-                // Fail-fast in strict mode
-                if (this.properties.strictMode()) {
-                    return GuardrailResult.failure(violations, fallbackMessage);
-                }
+                if (this.properties.strictMode()) return GuardrailResult.failure(violations, fallbackMessage);
             }
         }
-
-        if (!violations.isEmpty()) {
-            return GuardrailResult.failure(violations, fallbackMessage);
-        }
-
+        if (!violations.isEmpty()) return GuardrailResult.failure(violations, fallbackMessage);
         return GuardrailResult.success(text);
     }
 

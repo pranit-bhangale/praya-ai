@@ -68,49 +68,40 @@ public class RateLimitAspect {
         final Method declared = ((MethodSignature) pjp.getSignature()).getMethod();
         final Method method = AopUtils.getMostSpecificMethod(declared, pjp.getTarget().getClass());
         final List<CompiledPolicy> policies = this.policyCache.computeIfAbsent(method, this::compile);
-
         HttpServletRequest request = null;
         HttpServletResponse response = null;
         if (RequestContextHolder.getRequestAttributes() instanceof ServletRequestAttributes attrs) {
             request = attrs.getRequest();
             response = attrs.getResponse();
         }
-
         long minRemaining = Long.MAX_VALUE;
         int minLimit = 0;
-
         for (CompiledPolicy c : policies) {
             Key key = resolveKey(c, request, pjp, method);
             RateLimitResult r = this.service.check(c.policy(), key.scope(), key.id());
-
             if (!r.allowed()) {
                 long retrySeconds = Math.max(1, Math.ceilDiv(r.retryAfterMs(), 1000L));
                 throw new RateLimitExceededException(retrySeconds);
             }
-
             if (r.remaining() >= 0 && r.remaining() < minRemaining) {
                 minRemaining = r.remaining();
                 minLimit = c.policy().limit();
             }
         }
-
         if (response != null && minRemaining != Long.MAX_VALUE) {
             response.setIntHeader("X-RateLimit-Limit", minLimit);
             response.setHeader("X-RateLimit-Remaining", Long.toString(minRemaining));
         }
-
         return pjp.proceed();
     }
 
     private List<CompiledPolicy> compile(Method method) {
         Set<RateLimit> annotations = AnnotatedElementUtils
                 .getMergedRepeatableAnnotations(method, RateLimit.class, RateLimits.class);
-
         List<CompiledPolicy> out = new ArrayList<>(annotations.size());
         int index = 0;
         for (RateLimit a : annotations) {
-            String defaultName = method.getDeclaringClass().getSimpleName()
-                    + "#" + method.getName() + "#" + (index++);
+            String defaultName = method.getDeclaringClass().getSimpleName() + "#" + method.getName() + "#" + (index++);
             RateLimitPolicy policy = RateLimitPolicy.from(a, defaultName);
             Expression expr = a.key() == RateLimit.KeyType.EXPRESSION
                     ? this.parser.parseExpression(a.keyExpression())
@@ -122,17 +113,11 @@ public class RateLimitAspect {
 
     private Key resolveKey(CompiledPolicy c, HttpServletRequest req, ProceedingJoinPoint pjp, Method method) {
         String ip = this.identity.ip(req);
-
         return switch (c.policy().key()) {
             case IP -> new Key("ip", ip);
             case EXPRESSION -> {
                 String value = evaluateExpression(c, pjp, method);
-                if (value == null || value.isBlank()) {
-                    yield new Key("ip", ip);
-                }
-                // Security Boundary: Combine IP + Hashed Expression Value.
-                // On public endpoints without login, this guarantees an attacker cannot lock out
-                // or exhaust the rate limit quota of other users by guessing their conversationId.
+                if (value == null || value.isBlank()) yield new Key("ip", ip);
                 yield new Key("x", ip + ":" + ClientIdentity.hash(value));
             }
         };
@@ -140,9 +125,8 @@ public class RateLimitAspect {
 
     private String evaluateExpression(CompiledPolicy c, ProceedingJoinPoint pjp, Method method) {
         try {
-            MethodBasedEvaluationContext ctx = new MethodBasedEvaluationContext(
-                    pjp.getTarget(), method, pjp.getArgs(), this.paramNames
-            );
+            MethodBasedEvaluationContext ctx = new MethodBasedEvaluationContext
+                    (pjp.getTarget(), method, pjp.getArgs(), this.paramNames);
             Object value = c.keyExpr().getValue(ctx);
             if (value == null || value.toString().isBlank()) {
                 this.metrics.keyFallback(c.policy().name(), "blank");

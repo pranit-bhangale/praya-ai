@@ -59,82 +59,41 @@ public class LinkedInSource implements KnowledgeSource {
             String pageTitle = doc.title();
             String location = doc.location();
 
-            // Detect LinkedIn AuthWall gate
             if (location.contains(ApiConstants.LINKEDIN_AUTHWALL_PATH)
                     || location.contains(ApiConstants.LINKEDIN_LOGIN_PATH)
                     || pageTitle.toLowerCase().contains("authwall")) {
-                log.warn("[DATA-SOURCE] [LINKEDIN-AUTHWALL] LinkedIn AuthWall gate detected (location: {}). Serving verified public baseline credentials.", location);
-            } else {
-                String ogTitle = doc.select("meta[property=og:title]").attr("content");
-                String ogDesc = doc.select("meta[property=og:description]").attr("content");
+                log.warn("[DATA-SOURCE] [LINKEDIN-AUTHWALL] LinkedIn AuthWall gate detected (location: {}). Live profile data blocked by LinkedIn.", location);
+                return List.of();
+            }
 
-                if (StringUtils.hasText(ogTitle) || StringUtils.hasText(ogDesc)) {
-                    List<KnowledgeItem> items = new ArrayList<>(getCuratedKnowledge());
-                    items.add(KnowledgeItem.builder()
-                            .id("linkedin-live-opengraph")
-                            .source(DataSourceType.LINKEDIN)
-                            .category(ProfileConstants.CATEGORY_PROFILE)
-                            .title("Live LinkedIn Headline: " + (ogTitle.isBlank() ? pageTitle : ogTitle))
-                            .content("Summary: " + ogDesc + " | Profile Link: " + this.profileUrl)
-                            .tags(List.of("linkedin", "live", "opengraph", "headline"))
-                            .build());
-                    final long durationMs = System.currentTimeMillis() - startTime;
-                    log.info("[DATA-SOURCE] [LINKEDIN-FETCH-SUCCESS] Scraped live metadata successfully (items: {}, durationMs: {})",
-                            items.size(), durationMs);
-                    return items;
-                }
+            String ogTitle = doc.select("meta[property=og:title]").attr("content");
+            String ogDesc = doc.select("meta[property=og:description]").attr("content");
+
+            if (StringUtils.hasText(ogTitle) || StringUtils.hasText(ogDesc)) {
+                List<KnowledgeItem> items = new ArrayList<>();
+                items.add(KnowledgeItem.builder()
+                        .id("linkedin-live-opengraph")
+                        .source(DataSourceType.LINKEDIN)
+                        .category(ProfileConstants.CATEGORY_PROFILE)
+                        .title("Live LinkedIn Profile: " + (ogTitle.isBlank() ? pageTitle : ogTitle))
+                        .content("Headline & Summary: " + ogDesc + " | Profile Link: " + this.profileUrl)
+                        .tags(List.of("linkedin", "live", "opengraph", "headline", "profile"))
+                        .build());
+                final long durationMs = System.currentTimeMillis() - startTime;
+                log.info("[DATA-SOURCE] [LINKEDIN-FETCH-SUCCESS] Scraped live metadata successfully (items: {}, durationMs: {})",
+                        items.size(), durationMs);
+                return items;
             }
         } catch (HttpStatusException e) {
-            log.warn("[DATA-SOURCE] [LINKEDIN-SCRAPE-GATED] HTTP status {} (LinkedIn anti-scraping CDN/999). Serving verified public credentials.", e.getStatusCode());
+            log.warn("[DATA-SOURCE] [LINKEDIN-SCRAPE-GATED] HTTP status {} (LinkedIn anti-scraping CDN/999).", e.getStatusCode());
         } catch (Exception e) {
-            log.warn("[DATA-SOURCE] [LINKEDIN-FETCH-FALLBACK] Live probe failed (reason: {}). Serving verified public credentials.", e.getMessage());
+            log.warn("[DATA-SOURCE] [LINKEDIN-FETCH-ERROR] Live LinkedIn probe failed (reason: {}).", e.getMessage());
         }
-
-        return getCuratedKnowledge();
+        return List.of();
     }
 
     @Override
     public List<ProjectRecord> fetchProjects() {
         return List.of();
-    }
-
-    private List<KnowledgeItem> getCuratedKnowledge() {
-        return List.of(
-                KnowledgeItem.builder()
-                        .id("linkedin-pgdac")
-                        .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_EDUCATION)
-                        .title("Post Graduate Diploma in Advanced Computing (PG-DAC)")
-                        .content("Credential / Diploma: Post Graduate Diploma in Advanced Computing (PG-DAC) | Institution: Institute of Emerging Technologies (IET), CDAC | Core Curriculum: Object-Oriented Programming, Data Structures & Algorithms, Operating Systems, Computer Networks, Microservices, and Distributed Systems.")
-                        .tags(List.of("education", "pg-dac", "cdac", "iet", "diploma", "certification", "credentials"))
-                        .build(),
-
-                KnowledgeItem.builder()
-                        .id("linkedin-be")
-                        .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_EDUCATION)
-                        .title("Bachelor of Engineering (BE) in Electronics & Telecommunication")
-                        .content("Degree: Bachelor of Engineering (BE) in Electronics & Telecommunication | Institution: Savitribai Phule Pune University (SPPU) | Focus: Electronics, Embedded Systems, Telecommunication, and Core Engineering Concepts.")
-                        .tags(List.of("education", "degree", "be", "sppu", "pune university", "engineering"))
-                        .build(),
-
-                KnowledgeItem.builder()
-                        .id("linkedin-experience")
-                        .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_EXPERIENCE)
-                        .title("Professional Focus & Architecture Philosophy")
-                        .content(ProfileConstants.PHILOSOPHY_CONTENT)
-                        .tags(ProfileConstants.TAGS_PHILOSOPHY)
-                        .build(),
-
-                KnowledgeItem.builder()
-                        .id("linkedin-profile-link")
-                        .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_CONTACT)
-                        .title("LinkedIn Profile Link")
-                        .content("LinkedIn Profile: " + this.profileUrl + " | Connect with Pranit for engineering collaborations and backend roles.")
-                        .tags(ProfileConstants.TAGS_CONTACT)
-                        .build()
-        );
     }
 }
