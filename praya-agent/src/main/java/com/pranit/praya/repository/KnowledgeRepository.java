@@ -1,42 +1,55 @@
 package com.pranit.praya.repository;
 
 import com.pranit.praya.cache.config.CacheConfig;
-import com.pranit.praya.data.Data;
+import com.pranit.praya.model.DataSourceType;
 import com.pranit.praya.model.KnowledgeItem;
 import com.pranit.praya.model.ProjectRecord;
+import com.pranit.praya.source.KnowledgeAggregator;
 import jakarta.annotation.PostConstruct;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
- * Thread-safe centralized collection store.
- * Initialized with static seed data and enhanced with Spring annotation-based caching:
- *
- * @Cacheable and @CacheEvict.
+ * Thread-safe centralized collection store adhering to the Repository Pattern.
+ * Ingests data through the KnowledgeAggregator composite strategy across all 3 sources
+ * (Portfolio Website, GitHub, and LinkedIn).
  */
-@org.springframework.stereotype.Repository
+@Slf4j
+@Repository
+@RequiredArgsConstructor
 public class KnowledgeRepository {
 
+    private final KnowledgeAggregator knowledgeAggregator;
     private final CopyOnWriteArrayList<KnowledgeItem> knowledgeCollection = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<ProjectRecord> projectCollection = new CopyOnWriteArrayList<>();
 
     @PostConstruct
     public void init() {
-        populateSeedData();
+        populateData();
     }
 
-    private void populateSeedData() {
+    private void populateData() {
+        final long startTime = System.currentTimeMillis();
         knowledgeCollection.clear();
         projectCollection.clear();
-        knowledgeCollection.addAll(Data.SEED_KNOWLEDGE);
-        projectCollection.addAll(Data.SEED_PROJECTS);
+
+        // Dynamically aggregate from all registered source strategies
+        knowledgeCollection.addAll(this.knowledgeAggregator.aggregateKnowledge());
+        projectCollection.addAll(this.knowledgeAggregator.aggregateProjects());
+
+        final long durationMs = System.currentTimeMillis() - startTime;
+        log.info("[DATA-SOURCE] [REPOSITORY-LOADED] In-memory store loaded items: {}, projects: {}, durationMs: {}",
+                knowledgeCollection.size(), projectCollection.size(), durationMs);
     }
 
     /**
-     * Searches knowledge documents. Cached via @Cacheable backed by AtomicReference cache.
+     * Searches knowledge documents across all sources. Cached via @Cacheable.
      */
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "#query.toLowerCase().trim()")
     public List<KnowledgeItem> search(String query) {
@@ -49,7 +62,16 @@ public class KnowledgeRepository {
     }
 
     /**
-     * Looks up projects. Cached via @Cacheable backed by AtomicReference cache.
+     * Retrieves knowledge documents filtered by originating data source strategy.
+     */
+    public List<KnowledgeItem> findBySource(DataSourceType source) {
+        return knowledgeCollection.stream()
+                .filter(item -> item.source() == source)
+                .toList();
+    }
+
+    /**
+     * Looks up projects by name, description, or tech stack keyword. Cached via @Cacheable.
      */
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_PROJECTS, key = "(#keyword != null ? #keyword.toLowerCase().trim() : '')")
     public List<ProjectRecord> findProjects(String keyword) {
@@ -62,10 +84,10 @@ public class KnowledgeRepository {
     }
 
     /**
-     * Refreshes the collection from static defaults and evicts all cached entries via @CacheEvict.
+     * Refreshes the collection from all sources and evicts all cached entries via @CacheEvict.
      */
     @CacheEvict(cacheNames = {CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, CacheConfig.CACHE_PORTFOLIO_PROJECTS}, allEntries = true)
     public void refreshAndEvictAll() {
-        populateSeedData();
+        populateData();
     }
 }

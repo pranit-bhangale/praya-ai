@@ -9,7 +9,6 @@ import org.springframework.stereotype.Component;
 
 /**
  * Scheduled background tasks for automated cache eviction and data collection refresh.
- * Keeps memory optimal and prevents stale cached responses without exposing manual HTTP eviction endpoints.
  */
 @Slf4j
 @Component
@@ -24,9 +23,11 @@ public class CacheEvictionScheduler {
      */
     @Scheduled(cron = "0 0 */6 * * *")
     public void scheduleAnswerCacheEviction() {
-        log.info("Executing scheduled eviction of AI agent response cache");
+        final long startTime = System.currentTimeMillis();
+        log.info("[SCHEDULER] [CACHE-EVICT] Starting scheduled eviction of AI agent response cache");
         this.agentCacheService.evictAllAnswers();
-        log.info("AI agent response cache successfully evicted");
+        final long durationMs = System.currentTimeMillis() - startTime;
+        log.info("[SCHEDULER] [CACHE-EVICT] AI agent response cache successfully cleared (durationMs: {})", durationMs);
     }
 
     /**
@@ -34,8 +35,10 @@ public class CacheEvictionScheduler {
      */
     @Scheduled(cron = "0 0 0 * * *")
     public void scheduleKnowledgeRefreshAndEviction() {
-        log.info("Executing scheduled refresh and cache eviction for portfolio knowledge collections");
+        final long startTime = System.currentTimeMillis();
+        log.info("[SCHEDULER] [DATA-REFRESH] Starting scheduled refresh of portfolio knowledge and project collections");
         this.knowledgeRepository.refreshAndEvictAll();
-        log.info("Portfolio collections refreshed and associated caches evicted");
+        final long durationMs = System.currentTimeMillis() - startTime;
+        log.info("[SCHEDULER] [DATA-REFRESH] Portfolio collections refreshed and associated caches evicted (durationMs: {})", durationMs);
     }
 }

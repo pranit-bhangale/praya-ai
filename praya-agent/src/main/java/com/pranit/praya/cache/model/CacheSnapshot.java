@@ -7,8 +7,6 @@ import java.util.Map;
 
 /**
  * Immutable snapshot of the entire cache state.
- * Reads are 100% wait-free with zero allocations.
- * Writes use CAS to maintain immutability and capacity bounds.
  */
 public record CacheSnapshot<K, V>(
         Map<K, CacheEntry<V>> entries

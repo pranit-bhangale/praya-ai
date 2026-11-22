@@ -8,14 +8,12 @@ import org.springframework.stereotype.Service;
 
 /**
  * Service providing Spring annotation-based caching for AI question responses.
- * Uses @Cacheable, @CachePut, and @CacheEvict backed by the AtomicReference cache.
  */
 @Service
 public class AgentCacheService {
 
     /**
      * Retrieves cached answer if available.
-     * If not found, returns null so the caller can trigger live LLM execution.
      */
     @Cacheable(
             cacheNames = CacheConfig.CACHE_AGENT_RESPONSES,
@@ -28,7 +26,6 @@ public class AgentCacheService {
 
     /**
      * Stores or updates the computed answer in the cache using @CachePut.
-     * Returns the cached answer so Spring's AOP interceptor can store it.
      */
     @CachePut(
             cacheNames = CacheConfig.CACHE_AGENT_RESPONSES,

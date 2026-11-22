@@ -13,7 +13,6 @@ import java.util.function.Function;
 
 /**
  * Thread-safe, lock-free cache using AtomicReference CAS loop.
- * Reads are wait-free and zero-allocation.
  */
 public class AtomicReferenceCache<K, V> implements Cache<K, V> {
 
@@ -30,10 +29,8 @@ public class AtomicReferenceCache<K, V> implements Cache<K, V> {
     @Override
     public Optional<V> get(@NonNull K key) {
         Objects.requireNonNull(key, "key cannot be null");
-        CacheEntry<V> entry = snapshotRef.get().entries().get(key);
-        if (entry == null || entry.isExpired()) {
-            return Optional.empty();
-        }
+        CacheEntry<V> entry = this.snapshotRef.get().entries().get(key);
+        if (entry == null || entry.isExpired()) return Optional.empty();
         return Optional.of(entry.value());
     }
 
@@ -51,7 +48,7 @@ public class AtomicReferenceCache<K, V> implements Cache<K, V> {
                 .createdAt(Instant.now())
                 .ttl(ttl)
                 .build();
-        snapshotRef.updateAndGet(s -> s.withPut(key, entry, this.maxCapacity));
+        this.snapshotRef.updateAndGet(s -> s.withPut(key, entry, this.maxCapacity));
     }
 
     @Override
