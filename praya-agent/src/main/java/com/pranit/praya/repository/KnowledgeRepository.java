@@ -35,6 +35,7 @@ public class KnowledgeRepository {
     }
 
     private void populateData() {
+        final long startTime = System.currentTimeMillis();
         knowledgeCollection.clear();
         projectCollection.clear();
 
@@ -42,8 +43,9 @@ public class KnowledgeRepository {
         knowledgeCollection.addAll(this.knowledgeAggregator.aggregateKnowledge());
         projectCollection.addAll(this.knowledgeAggregator.aggregateProjects());
 
-        log.info("KnowledgeRepository loaded {} knowledge items and {} projects across all sources",
-                knowledgeCollection.size(), projectCollection.size());
+        final long durationMs = System.currentTimeMillis() - startTime;
+        log.info("[DATA-SOURCE] [REPOSITORY-LOADED] In-memory store loaded items: {}, projects: {}, durationMs: {}",
+                knowledgeCollection.size(), projectCollection.size(), durationMs);
     }
 
     /**

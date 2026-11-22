@@ -44,6 +44,9 @@ public final class ProfileConstants {
     public static final String CATEGORY_SKILLS = "skills";
     public static final String CATEGORY_CONTACT = "contact";
     public static final String CATEGORY_PROFILE = "profile";
+    public static final String CATEGORY_BLOG = "blog";
+    public static final String CATEGORY_CERTIFICATION = "certification";
+    public static final String CATEGORY_POSTS = "posts";
 
     // Tags
     public static final List<String> TAGS_EDUCATION = List.of(
@@ -57,5 +60,14 @@ public final class ProfileConstants {
     );
     public static final List<String> TAGS_CONTACT = List.of(
             "linkedin", "profile", "contact", "network"
+    );
+    public static final List<String> TAGS_BLOG = List.of(
+            "blog", "articles", "technical writing", "system design", "architecture"
+    );
+    public static final List<String> TAGS_CERTIFICATION = List.of(
+            "certifications", "credentials", "diploma", "cdac", "sppu", "qualifications"
+    );
+    public static final List<String> TAGS_POSTS = List.of(
+            "linkedin", "posts", "thought leadership", "engineering", "updates"
     );
 }

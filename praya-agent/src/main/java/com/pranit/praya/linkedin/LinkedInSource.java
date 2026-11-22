@@ -43,11 +43,11 @@ public class LinkedInSource implements KnowledgeSource {
 
     @Override
     public List<KnowledgeItem> fetchKnowledge() {
-        log.info("Fetching public LinkedIn profile data from URL: {}", this.profileUrl);
+        final long startTime = System.currentTimeMillis();
+        log.info("[DATA-SOURCE] [LINKEDIN-FETCH-START] Initiating fetch for LinkedIn profile: {}", this.profileUrl);
 
         try {
             this.rateLimiter.acquire(ApiConstants.RATE_LIMIT_KEY_LINKEDIN);
-            log.info("Executing live HTTP GET to public LinkedIn profile: {}", this.profileUrl);
             Document doc = Jsoup.connect(this.profileUrl)
                     .userAgent(ApiConstants.BROWSER_USER_AGENT)
                     .header("Accept-Language", "en-US,en;q=0.9")
@@ -63,13 +63,12 @@ public class LinkedInSource implements KnowledgeSource {
             if (location.contains(ApiConstants.LINKEDIN_AUTHWALL_PATH)
                     || location.contains(ApiConstants.LINKEDIN_LOGIN_PATH)
                     || pageTitle.toLowerCase().contains("authwall")) {
-                log.warn("LinkedIn AuthWall detected (redirected to {}). Automated scraping blocked by LinkedIn CDN. Serving verified public profile credentials.", location);
+                log.warn("[DATA-SOURCE] [LINKEDIN-AUTHWALL] LinkedIn AuthWall gate detected (location: {}). Serving verified public baseline credentials.", location);
             } else {
                 String ogTitle = doc.select("meta[property=og:title]").attr("content");
                 String ogDesc = doc.select("meta[property=og:description]").attr("content");
 
                 if (StringUtils.hasText(ogTitle) || StringUtils.hasText(ogDesc)) {
-                    log.info("Successfully scraped live LinkedIn OpenGraph metadata: {}", ogTitle);
                     List<KnowledgeItem> items = new ArrayList<>(getCuratedKnowledge());
                     items.add(KnowledgeItem.builder()
                             .id("linkedin-live-opengraph")
@@ -79,13 +78,16 @@ public class LinkedInSource implements KnowledgeSource {
                             .content("Summary: " + ogDesc + " | Profile Link: " + this.profileUrl)
                             .tags(List.of("linkedin", "live", "opengraph", "headline"))
                             .build());
+                    final long durationMs = System.currentTimeMillis() - startTime;
+                    log.info("[DATA-SOURCE] [LINKEDIN-FETCH-SUCCESS] Scraped live metadata successfully (items: {}, durationMs: {})",
+                            items.size(), durationMs);
                     return items;
                 }
             }
         } catch (HttpStatusException e) {
-            log.warn("LinkedIn HTTP returned status code {} (LinkedIn anti-scraping gate/999). Serving verified public credentials.", e.getStatusCode());
+            log.warn("[DATA-SOURCE] [LINKEDIN-SCRAPE-GATED] HTTP status {} (LinkedIn anti-scraping CDN/999). Serving verified public credentials.", e.getStatusCode());
         } catch (Exception e) {
-            log.warn("Live LinkedIn HTTP probe failed ({}). Serving verified public credentials.", e.getMessage());
+            log.warn("[DATA-SOURCE] [LINKEDIN-FETCH-FALLBACK] Live probe failed (reason: {}). Serving verified public credentials.", e.getMessage());
         }
 
         return getCuratedKnowledge();
@@ -99,12 +101,21 @@ public class LinkedInSource implements KnowledgeSource {
     private List<KnowledgeItem> getCuratedKnowledge() {
         return List.of(
                 KnowledgeItem.builder()
-                        .id("linkedin-education")
+                        .id("linkedin-pgdac")
                         .source(DataSourceType.LINKEDIN)
                         .category(ProfileConstants.CATEGORY_EDUCATION)
-                        .title("Education & Academic Credentials")
-                        .content(ProfileConstants.EDUCATION_CONTENT)
-                        .tags(ProfileConstants.TAGS_EDUCATION)
+                        .title("Post Graduate Diploma in Advanced Computing (PG-DAC)")
+                        .content("Credential / Diploma: Post Graduate Diploma in Advanced Computing (PG-DAC) | Institution: Institute of Emerging Technologies (IET), CDAC | Core Curriculum: Object-Oriented Programming, Data Structures & Algorithms, Operating Systems, Computer Networks, Microservices, and Distributed Systems.")
+                        .tags(List.of("education", "pg-dac", "cdac", "iet", "diploma", "certification", "credentials"))
+                        .build(),
+
+                KnowledgeItem.builder()
+                        .id("linkedin-be")
+                        .source(DataSourceType.LINKEDIN)
+                        .category(ProfileConstants.CATEGORY_EDUCATION)
+                        .title("Bachelor of Engineering (BE) in Electronics & Telecommunication")
+                        .content("Degree: Bachelor of Engineering (BE) in Electronics & Telecommunication | Institution: Savitribai Phule Pune University (SPPU) | Focus: Electronics, Embedded Systems, Telecommunication, and Core Engineering Concepts.")
+                        .tags(List.of("education", "degree", "be", "sppu", "pune university", "engineering"))
                         .build(),
 
                 KnowledgeItem.builder()

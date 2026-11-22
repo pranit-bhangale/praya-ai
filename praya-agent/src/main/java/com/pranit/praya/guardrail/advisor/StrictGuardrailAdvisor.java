@@ -48,7 +48,7 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
         final String input = request.prompt().getContents();
         final GuardrailResult inputResult = this.guardrailService.evaluate(input, ValidationPhase.INPUT);
         if (!inputResult.valid()) {
-            log.warn("Blocking input prompt due to guardrail violation: {}", inputResult.getFirstViolationMessage());
+            log.warn("[GUARDRAIL] [INPUT-BLOCKED] Call phase violation: {}", inputResult.getFirstViolationMessage());
             if (this.properties.strictMode()) {
                 throw new GuardrailViolationException(
                         ValidationPhase.INPUT,
@@ -66,7 +66,7 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
         final String outputText = extractResponseText(response);
         final GuardrailResult outputResult = this.guardrailService.evaluate(outputText, ValidationPhase.OUTPUT);
         if (!outputResult.valid()) {
-            log.warn("Blocking output response due to guardrail violation: {}", outputResult.getFirstViolationMessage());
+            log.warn("[GUARDRAIL] [OUTPUT-BLOCKED] Call generation violation: {}", outputResult.getFirstViolationMessage());
             if (this.properties.strictMode()) {
                 throw new GuardrailViolationException(
                         ValidationPhase.OUTPUT,
@@ -90,7 +90,7 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
         final String input = request.prompt().getContents();
         final GuardrailResult inputResult = this.guardrailService.evaluate(input, ValidationPhase.INPUT);
         if (!inputResult.valid()) {
-            log.warn("Streaming blocked at input phase: {}", inputResult.getFirstViolationMessage());
+            log.warn("[GUARDRAIL] [INPUT-BLOCKED] Pre-stream violation: {}", inputResult.getFirstViolationMessage());
             if (this.properties.strictMode()) {
                 return Flux.error(new GuardrailViolationException(
                         ValidationPhase.INPUT,
@@ -109,7 +109,7 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
                 buffer.append(chunkText);
                 GuardrailResult outputResult = this.guardrailService.evaluate(buffer.toString(), ValidationPhase.OUTPUT);
                 if (!outputResult.valid()) {
-                    log.warn("Streaming output blocked due to guardrail violation: {}", outputResult.getFirstViolationMessage());
+                    log.warn("[GUARDRAIL] [OUTPUT-BLOCKED] Streaming buffer violation: {}", outputResult.getFirstViolationMessage());
                     if (this.properties.strictMode()) {
                         return Flux.error(new GuardrailViolationException(
                                 ValidationPhase.OUTPUT,

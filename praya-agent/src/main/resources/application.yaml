@@ -1,6 +1,6 @@
 server:
   port: 8080
-
+  forward-headers-strategy: framework
 spring:
   application:
     name: praya-agent
@@ -12,15 +12,6 @@ spring:
     chat:
       client:
         enabled: true
-        tool-search-advisor:
-          enabled: true
-          tool-index-type: lucene
-          max-results: 3
-          reference-tool-name-accumulation: true
-      memory:
-        repository:
-          jdbc:
-            initialize-schema: always
     openai:
       api-key: ${CHAT_KEY}
       base-url: ${CHAT_BASE_URL}
@@ -34,17 +25,18 @@ spring:
       safeguard:
         blocked-words:
           - env
-
 praya:
   portfolio:
-    url: ${PORTFOLIO_URL:https://pranitbhangale.vercel.app}
+    url: ${PORTFOLIO_URL}
   github:
-    username: ${GITHUB_USERNAME:pranit-bhangale}
-    api-url: ${GITHUB_API_URL:https://api.github.com}
+    username: ${GITHUB_USERNAME}
+    api-url: ${GITHUB_API_URL}
   linkedin:
-    url: ${LINKEDIN_URL:https://www.linkedin.com/in/pranit-bhangale-1745542a7}
+    url: ${LINKEDIN_URL}
   rate-limiter:
-    api-delay-ms: ${APP_GITHUB_API_DELAY_MS:50}
+    api-delay-ms: ${API_DELAY_MS:50}
+  ratelimit:
+    enabled: true
   ai:
     guardrail:
       enabled: true
@@ -59,11 +51,14 @@ praya:
         - "(?i).*ignore\\s+(all\\s+)?previous\\s+(instructions|prompts|rules).*"
         - "(?i).*disregard\\s+all\\s+(prior|previous)\\s+(instructions|rules).*"
         - "(?i).*you\\s+are\\s+now\\s+in\\s+(dan|developer|jailbreak|unrestricted)\\s+mode.*"
-        - "(?i).*reveal\\s+(the|your)\\s+(system\\s+prompt|instructions|secret\\s+key).*"
+        - "(?i).*(reveal|show|tell|print|dump|output|repeat|display).*(system\\s+prompt|developer\\s+instructions?|system\\s+rules?|internal\\s+instructions?|system\\s+directive|hidden\\s+rules?).*"
+        - "(?i).*what\\s+are\\s+your\\s+(rules|instructions|prompts|guidelines|constraints|directives).*"
+        - "(?i).*repeat\\s+(everything|the\\s+text)\\s+(above|prior).*"
       output-patterns:
         - "(?i)(api[_-]?key|access[_-]?token|secret[_-]?key)\\s*[:=]\\s*['\"]?[a-zA-Z0-9_\\-]{16,}['\"]?"
         - "ey[A-Za-z0-9_-]{10,}\\.ey[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}"
         - "(?i).*jdbc:[a-zA-Z0-9]+://.*password=.*"
+        - "(?i).*(strict\\s+anti-hallucination|two-tier\\s+progressive\\s+tool\\s+catalog|progressive\\s+disclosure\\s+rules|system\\s+prompt\\s*:|internal\\s+rules\\s*:|tool\\s+calling\\s+chat\\s+options|under\\s+no\\s+circumstances\\s+should\\s+you\\s+reveal).*"
       input-violation-message: "Input security validation failed: Request violates safety policies."
       output-violation-message: "Output security validation failed: Response withheld due to safety policies."
 # ACTUATOR AND HEALTH CHECKS

@@ -13,6 +13,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -41,7 +42,8 @@ public class GitHubSource implements KnowledgeSource {
 
     @Override
     public List<KnowledgeItem> fetchKnowledge() {
-        log.info("Fetching GitHub profile knowledge via GitHubApiClient for user: {}", this.username);
+        final long startTime = System.currentTimeMillis();
+        log.info("[DATA-SOURCE] [GITHUB-FETCH-START] Fetching profile knowledge for user: {}", this.username);
         try {
             Map<String, Object> profile = this.gitHubApiClient.getUserProfile(this.username);
             if (profile != null && !profile.isEmpty()) {
@@ -52,7 +54,7 @@ public class GitHubSource implements KnowledgeSource {
                 String blog = String.valueOf(profile.getOrDefault("blog", ProfileConstants.PORTFOLIO_URL));
                 String htmlUrl = String.valueOf(profile.getOrDefault("html_url", "https://github.com/" + this.username));
 
-                return List.of(
+                List<KnowledgeItem> items = List.of(
                         KnowledgeItem.builder()
                                 .id("github-live-profile")
                                 .source(DataSourceType.GITHUB)
@@ -72,9 +74,13 @@ public class GitHubSource implements KnowledgeSource {
                                 .tags(ProfileConstants.TAGS_SKILLS)
                                 .build()
                 );
+                final long durationMs = System.currentTimeMillis() - startTime;
+                log.info("[DATA-SOURCE] [GITHUB-FETCH-SUCCESS] Retrieved profile items: {}, publicRepos: {}, durationMs: {}",
+                        items.size(), publicRepos, durationMs);
+                return items;
             }
         } catch (Exception e) {
-            log.warn("GitHub profile retrieval failed ({}): falling back to curated baseline", e.getMessage());
+            log.warn("[DATA-SOURCE] [GITHUB-FETCH-FALLBACK] Profile retrieval failed (reason: {}): falling back to curated baseline", e.getMessage());
         }
 
         return getBaselineKnowledge();
@@ -82,7 +88,8 @@ public class GitHubSource implements KnowledgeSource {
 
     @Override
     public List<ProjectRecord> fetchProjects() {
-        log.info("Fetching GitHub repository list via GitHubApiClient for user: {}", this.username);
+        final long startTime = System.currentTimeMillis();
+        log.info("[DATA-SOURCE] [GITHUB-FETCH-START] Fetching public repository list for user: {}", this.username);
         try {
             List<Map<String, Object>> repos = this.gitHubApiClient.listPublicRepos(this.username);
             if (repos != null && !repos.isEmpty()) {
@@ -93,7 +100,7 @@ public class GitHubSource implements KnowledgeSource {
                     // Security Boundary: Only expose public repositories to the portfolio agent
                     Object isPrivate = repo.get("private");
                     if (Boolean.TRUE.equals(isPrivate) || "private".equalsIgnoreCase(String.valueOf(repo.get("visibility")))) {
-                        log.debug("Skipping private repository [{}] from public portfolio catalog", name);
+                        log.debug("[DATA-SOURCE] [GITHUB-REPO-SKIP] Skipping private repository [{}]", name);
                         continue;
                     }
 
@@ -135,11 +142,25 @@ public class GitHubSource implements KnowledgeSource {
                             .highlights(highlights)
                             .build());
                 }
-                log.info("Successfully fetched and processed {} repositories via GitHubApiClient", liveProjects.size());
-                return liveProjects;
+
+                if (!liveProjects.isEmpty()) {
+                    // Merge with flagship baseline projects so comprehensive architecture highlights are always present
+                    Map<String, ProjectRecord> projectMap = new LinkedHashMap<>();
+                    for (ProjectRecord baseline : ProjectConstants.getBaselineProjects(this.username)) {
+                        projectMap.put(baseline.id(), baseline);
+                    }
+                    for (ProjectRecord live : liveProjects) {
+                        projectMap.putIfAbsent(live.id(), live);
+                    }
+                    List<ProjectRecord> merged = new ArrayList<>(projectMap.values());
+                    final long durationMs = System.currentTimeMillis() - startTime;
+                    log.info("[DATA-SOURCE] [GITHUB-FETCH-SUCCESS] Retrieved repositories count: {} (merged with flagship catalog) durationMs: {}",
+                            merged.size(), durationMs);
+                    return merged;
+                }
             }
         } catch (Exception e) {
-            log.warn("GitHub repository retrieval failed ({}): falling back to curated catalog", e.getMessage());
+            log.warn("[DATA-SOURCE] [GITHUB-FETCH-FALLBACK] Repository retrieval failed (reason: {}): falling back to curated catalog", e.getMessage());
         }
 
         return ProjectConstants.getBaselineProjects(this.username);

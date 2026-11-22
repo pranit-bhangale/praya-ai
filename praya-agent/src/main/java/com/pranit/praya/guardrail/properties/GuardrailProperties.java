@@ -27,15 +27,9 @@ public record GuardrailProperties(
 ) {
 
     public GuardrailProperties {
-        if (blockedWords == null) {
-            blockedWords = List.of();
-        }
-        if (inputPatterns == null) {
-            inputPatterns = List.of();
-        }
-        if (outputPatterns == null) {
-            outputPatterns = List.of();
-        }
+        if (blockedWords == null) blockedWords = List.of();
+        if (inputPatterns == null) inputPatterns = List.of();
+        if (outputPatterns == null) outputPatterns = List.of();
         if (inputViolationMessage == null || inputViolationMessage.isBlank()) {
             inputViolationMessage = "Input security validation failed: Request violates safety policies.";
         }

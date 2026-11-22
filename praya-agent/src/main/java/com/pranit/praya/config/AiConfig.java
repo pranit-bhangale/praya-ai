@@ -1,16 +1,17 @@
 package com.pranit.praya.config;
 
 import com.pranit.praya.constant.AiConstants;
+import com.pranit.praya.github.GitHubTools;
 import com.pranit.praya.guardrail.advisor.StrictGuardrailAdvisor;
 import com.pranit.praya.guardrail.properties.GuardrailProperties;
 import com.pranit.praya.guardrail.service.GuardrailService;
+import com.pranit.praya.linkedin.LinkedInTools;
+import com.pranit.praya.portfolio.PortfolioTools;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
-import org.springframework.ai.chat.memory.repository.jdbc.JdbcChatMemoryRepository;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -38,14 +39,7 @@ public class AiConfig {
 
     @Bean
     @ConditionalOnMissingBean
-    public ChatMemory chatMemory(ObjectProvider<JdbcChatMemoryRepository> jdbcChatMemoryRepositoryProvider) {
-        JdbcChatMemoryRepository repo = jdbcChatMemoryRepositoryProvider.getIfAvailable();
-        if (repo != null) {
-            return MessageWindowChatMemory.builder()
-                    .chatMemoryRepository(repo)
-                    .maxMessages(DEFAULT_MAX_MEMORY_MESSAGES)
-                    .build();
-        }
+    public ChatMemory chatMemory() {
         return MessageWindowChatMemory.builder()
                 .maxMessages(DEFAULT_MAX_MEMORY_MESSAGES)
                 .build();
@@ -63,9 +57,16 @@ public class AiConfig {
     }
 
     @Bean("chatClient")
-    public ChatClient chatClient(ChatClient.Builder builder, List<Advisor> advisors) {
+    public ChatClient chatClient(
+            ChatClient.Builder builder,
+            List<Advisor> advisors,
+            GitHubTools gitHubTools,
+            LinkedInTools linkedInTools,
+            PortfolioTools portfolioTools
+    ) {
         return builder
                 .defaultSystem(AiConstants.SYSTEM_PROMPT)
+                .defaultTools(gitHubTools, linkedInTools, portfolioTools)
                 .defaultAdvisors(advisors)
                 .build();
     }

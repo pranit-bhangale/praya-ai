@@ -24,10 +24,6 @@ public record GuardrailResult(
         return new GuardrailResult(false, List.copyOf(violations), fallbackText);
     }
 
-    public static GuardrailResult failure(GuardrailViolation violation, String fallbackText) {
-        return new GuardrailResult(false, List.of(violation), fallbackText);
-    }
-
     public String getFirstViolationMessage() {
         return violations.isEmpty() ? "" : violations.getFirst().message();
     }

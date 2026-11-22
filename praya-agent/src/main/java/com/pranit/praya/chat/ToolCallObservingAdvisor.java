@@ -1,5 +1,6 @@
 package com.pranit.praya.chat;
 
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -20,6 +21,7 @@ import java.util.function.Consumer;
 /**
  * Advisor observing every intermediate tool call and completion within Spring AI's tool loop.
  */
+@Slf4j
 public class ToolCallObservingAdvisor implements CallAdvisor, StreamAdvisor {
 
     public static final int ORDER = ToolCallingAdvisor.DEFAULT_ORDER + 100;
@@ -52,6 +54,8 @@ public class ToolCallObservingAdvisor implements CallAdvisor, StreamAdvisor {
                 })
                 .forEach(response -> {
                     String id = StringUtils.hasText(response.id()) ? response.id() : response.name();
+                    int payloadBytes = response.responseData() != null ? response.responseData().length() : 0;
+                    log.info("[AI-AGENT] [TOOL-COMPLETED] tool: {}, payloadCharacters: {}", response.name(), payloadBytes);
                     this.listener.accept(ToolCallEvent.builder()
                             .id(id)
                             .name(response.name())
@@ -74,6 +78,7 @@ public class ToolCallObservingAdvisor implements CallAdvisor, StreamAdvisor {
                 })
                 .forEach(toolCall -> {
                     String id = StringUtils.hasText(toolCall.id()) ? toolCall.id() : toolCall.name();
+                    log.info("[AI-AGENT] [TOOL-STARTED] tool: {}", toolCall.name());
                     this.listener.accept(ToolCallEvent.builder()
                             .id(id)
                             .name(toolCall.name())

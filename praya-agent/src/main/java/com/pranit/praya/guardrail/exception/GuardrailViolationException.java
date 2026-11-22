@@ -2,12 +2,14 @@ package com.pranit.praya.guardrail.exception;
 
 import com.pranit.praya.guardrail.model.GuardrailViolation;
 import com.pranit.praya.guardrail.model.ValidationPhase;
+import lombok.Getter;
 
 import java.util.List;
 
 /**
  * Exception thrown when prompt or response validation violates guardrail criteria in strict mode.
  */
+@Getter
 public class GuardrailViolationException extends RuntimeException {
 
     private final ValidationPhase phase;
@@ -23,13 +25,5 @@ public class GuardrailViolationException extends RuntimeException {
         super(message);
         this.phase = phase;
         this.violations = violations != null ? List.copyOf(violations) : List.of();
-    }
-
-    public ValidationPhase getPhase() {
-        return phase;
-    }
-
-    public List<GuardrailViolation> getViolations() {
-        return violations;
     }
 }

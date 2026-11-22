@@ -46,7 +46,8 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
     @Override
     public List<KnowledgeItem> fetchKnowledge() {
         this.rateLimiter.acquire(ApiConstants.RATE_LIMIT_KEY_PORTFOLIO);
-        log.info("Fetching knowledge from portfolio website: {}", this.portfolioUrl);
+        final long startTime = System.currentTimeMillis();
+        log.info("[DATA-SOURCE] [PORTFOLIO-FETCH-START] Initiating scrape for portfolio website: {}", this.portfolioUrl);
         List<KnowledgeItem> items = new ArrayList<>();
 
         try {
@@ -104,8 +105,12 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
                         .build());
             }
 
+            final long durationMs = System.currentTimeMillis() - startTime;
+            log.info("[DATA-SOURCE] [PORTFOLIO-FETCH-SUCCESS] Scraped portfolio sections successfully (items: {}, durationMs: {})",
+                    items.size(), durationMs);
+
         } catch (IOException e) {
-            log.warn("JSoup scrape failed for {}: {}. Loading static portfolio baseline.", this.portfolioUrl, e.getMessage());
+            log.warn("[DATA-SOURCE] [PORTFOLIO-FETCH-FALLBACK] Scrape failed for {} (reason: {}). Loading static portfolio baseline.", this.portfolioUrl, e.getMessage());
             items.add(KnowledgeItem.builder()
                     .id("portfolio-baseline-bio")
                     .source(DataSourceType.PORTFOLIO_WEBSITE)

@@ -43,10 +43,10 @@ public class GuardrailServiceImpl implements GuardrailService {
                 if (!result.valid()) {
                     aggregatedViolations.addAll(result.violations());
                     if (this.properties.strictMode()) {
-                        log.warn("Guardrail check failed at phase [{}] by validator [{}]: matched [{}]",
+                        log.warn("[GUARDRAIL] [CHECK-FAILED] phase: {}, validator: {}, ruleType: {}",
                                 phase,
                                 validator.getClass().getSimpleName(),
-                                result.violations().getFirst().matchedTarget());
+                                result.violations().getFirst().ruleType());
                         return result;
                     }
                 }

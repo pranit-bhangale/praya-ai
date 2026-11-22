@@ -24,21 +24,29 @@ public class KnowledgeAggregator {
      * Aggregates knowledge documents across all active sources.
      */
     public List<KnowledgeItem> aggregateKnowledge() {
-        log.info("Aggregating knowledge from {} registered source(s)", sources.size());
-        return sources.stream()
+        final long startTime = System.currentTimeMillis();
+        List<KnowledgeItem> items = sources.stream()
                 .filter(KnowledgeSource::isAvailable)
                 .flatMap(source -> source.fetchKnowledge().stream())
                 .toList();
+        final long durationMs = System.currentTimeMillis() - startTime;
+        log.info("[DATA-SOURCE] [KNOWLEDGE-AGGREGATED] Registered sources: {}, totalItems: {}, durationMs: {}",
+                sources.size(), items.size(), durationMs);
+        return items;
     }
 
     /**
      * Aggregates project catalogs across all active sources.
      */
     public List<ProjectRecord> aggregateProjects() {
-        log.info("Aggregating projects from {} registered source(s)", sources.size());
-        return sources.stream()
+        final long startTime = System.currentTimeMillis();
+        List<ProjectRecord> projects = sources.stream()
                 .filter(KnowledgeSource::isAvailable)
                 .flatMap(source -> source.fetchProjects().stream())
                 .toList();
+        final long durationMs = System.currentTimeMillis() - startTime;
+        log.info("[DATA-SOURCE] [PROJECTS-AGGREGATED] Registered sources: {}, totalProjects: {}, durationMs: {}",
+                sources.size(), projects.size(), durationMs);
+        return projects;
     }
 }
