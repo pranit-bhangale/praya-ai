@@ -1,6 +1,5 @@
-package com.pranit.praya.chat.advisor;
+package com.pranit.praya.chat;
 
-import com.pranit.praya.chat.event.ToolCallEvent;
 import org.jspecify.annotations.NonNull;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
@@ -19,10 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * Sits INSIDE ToolCallingAdvisor's recursive loop (order is greater than
- * {@link ToolCallingAdvisor#DEFAULT_ORDER}, i.e. closer to the model), so it
- * sees every intermediate chunk that the tool loop normally hides from the
- * outbound stream — including the assistant chunks that carry tool calls.
+ * Advisor observing every intermediate tool call and completion within Spring AI's tool loop.
  */
 public class ToolCallObservingAdvisor implements CallAdvisor, StreamAdvisor {
 
@@ -95,12 +91,12 @@ public class ToolCallObservingAdvisor implements CallAdvisor, StreamAdvisor {
     }
 
     @Override
-    public @NonNull String getName() {
-        return "toolCallObservingAdvisor";
+    public int getOrder() {
+        return ORDER;
     }
 
     @Override
-    public int getOrder() {
-        return ORDER;
+    public @NonNull String getName() {
+        return getClass().getSimpleName();
     }
 }

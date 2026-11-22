@@ -1,19 +1,14 @@
-package com.pranit.praya.chat.stream;
+package com.pranit.praya.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pranit.praya.chat.advisor.ToolCallObservingAdvisor;
+import com.pranit.praya.constant.StreamEventConstants;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 /**
- * Per-request bundle of the SSE plumbing for one chat turn: the side channel
- * (sink) tool events are pushed onto, the advisor that feeds it, and the
- * assembly of the final merged stream.
- * <p>
- * Event vocabulary: token | tool | done | error. Token and tool payloads are
- * JSON-encoded.
+ * Per-request bundle of SSE streaming components for a chat turn.
  */
 public class ChatEventStream {
 
@@ -26,9 +21,9 @@ public class ChatEventStream {
         this.json = json;
         this.observer = new ToolCallObservingAdvisor(event -> {
             try {
-                this.toolEvents.tryEmitNext(sse("tool", this.json.writeValueAsString(event)));
+                this.toolEvents.tryEmitNext(sse(StreamEventConstants.EVENT_TOOL, this.json.writeValueAsString(event)));
             } catch (JsonProcessingException e) {
-                this.toolEvents.tryEmitNext(sse("error", "Failed to serialize tool event: " + e.getMessage()));
+                this.toolEvents.tryEmitNext(sse(StreamEventConstants.EVENT_ERROR, "Failed to serialize tool event: " + e.getMessage()));
             }
         });
     }
@@ -43,16 +38,16 @@ public class ChatEventStream {
 
     public ServerSentEvent<String> token(String token) {
         try {
-            return sse("token", this.json.writeValueAsString(token));
+            return sse(StreamEventConstants.EVENT_TOKEN, this.json.writeValueAsString(token));
         } catch (JsonProcessingException e) {
-            return sse("token", "\"" + token.replace("\"", "\\\"") + "\"");
+            return sse(StreamEventConstants.EVENT_TOKEN, "\"" + token.replace("\"", "\\\"") + "\"");
         }
     }
 
     public Flux<ServerSentEvent<String>> mergeWith(Flux<ServerSentEvent<String>> tokens) {
         return Flux.merge(tokens.doFinally(_ ->
                         this.toolEvents.tryEmitComplete()), this.toolEvents.asFlux())
-                .onErrorResume(e -> Flux.just(sse("error", e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())))
-                .concatWith(Flux.just(sse("done", "")));
+                .onErrorResume(e -> Flux.just(sse(StreamEventConstants.EVENT_ERROR, e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())))
+                .concatWith(Flux.just(sse(StreamEventConstants.EVENT_DONE, "")));
     }
 }

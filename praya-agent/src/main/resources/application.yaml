@@ -4,20 +4,100 @@ server:
 spring:
   application:
     name: praya-agent
-
   threads:
     virtual:
       enabled: true
-
+  # Spring AI Configuration
   ai:
+    chat:
+      client:
+        enabled: true
+        tool-search-advisor:
+          enabled: true
+          tool-index-type: lucene
+          max-results: 3
+          reference-tool-name-accumulation: true
+      memory:
+        repository:
+          jdbc:
+            initialize-schema: always
     openai:
-      api-key: ${OPENAI_API_KEY:demo-key}
+      api-key: ${CHAT_KEY}
+      base-url: ${CHAT_BASE_URL}
       chat:
-        options:
-          model: gpt-4o-mini
-          temperature: 0.3
+        model: ${CHAT_MODEL}
+        temperature: 0.2
+        max-completion-tokens: 2048
+      timeout: 120s
+    # SafeGuard Configuration
+    advisor:
+      safeguard:
+        blocked-words:
+          - env
 
 praya:
-  cache:
-    answers-eviction-cron: "0 0 */6 * * *"
-    knowledge-refresh-cron: "0 0 0 * * *"
+  portfolio:
+    url: ${PORTFOLIO_URL:https://pranitbhangale.vercel.app}
+  github:
+    username: ${GITHUB_USERNAME:pranit-bhangale}
+    api-url: ${GITHUB_API_URL:https://api.github.com}
+  linkedin:
+    url: ${LINKEDIN_URL:https://www.linkedin.com/in/pranit-bhangale-1745542a7}
+  rate-limiter:
+    api-delay-ms: ${APP_GITHUB_API_DELAY_MS:50}
+  ai:
+    guardrail:
+      enabled: true
+      strict-mode: true
+      blocked-words:
+        - env
+        - system prompt
+        - drop table
+        - ignore previous instructions
+        - bypass restrictions
+      input-patterns:
+        - "(?i).*ignore\\s+(all\\s+)?previous\\s+(instructions|prompts|rules).*"
+        - "(?i).*disregard\\s+all\\s+(prior|previous)\\s+(instructions|rules).*"
+        - "(?i).*you\\s+are\\s+now\\s+in\\s+(dan|developer|jailbreak|unrestricted)\\s+mode.*"
+        - "(?i).*reveal\\s+(the|your)\\s+(system\\s+prompt|instructions|secret\\s+key).*"
+      output-patterns:
+        - "(?i)(api[_-]?key|access[_-]?token|secret[_-]?key)\\s*[:=]\\s*['\"]?[a-zA-Z0-9_\\-]{16,}['\"]?"
+        - "ey[A-Za-z0-9_-]{10,}\\.ey[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}"
+        - "(?i).*jdbc:[a-zA-Z0-9]+://.*password=.*"
+      input-violation-message: "Input security validation failed: Request violates safety policies."
+      output-violation-message: "Output security validation failed: Response withheld due to safety policies."
+# ACTUATOR AND HEALTH CHECKS
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      readinessstate:
+        enabled: true
+      show-details: never
+# APPLICATION INFORMATION
+info:
+  app:
+    name: Praya-Agent
+    description: "Praya AI Pranit Personal AI Assistant."
+    version: 1.0.0
+# LOGGING CONFIGURATION
+logging:
+  file:
+    name: ${LOG_PATH:logs/praya.log}
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.pranit.praya: ${LOG_LEVEL:INFO}
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${LOG_PATH:logs/praya.log}.%d{yyyy-MM-dd}.%i.log.gz
+      max-file-size: 50MB
+      total-size-cap: 1GB
+      max-history: 30
+      clean-history-on-start: false
