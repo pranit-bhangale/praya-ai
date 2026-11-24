@@ -1,7 +1,7 @@
 package com.pranit.praya.portfolio;
 
-import com.pranit.praya.constant.ApiConstants;
-import com.pranit.praya.constant.ProfileConstants;
+import com.pranit.praya.constant.ApiConstant;
+import com.pranit.praya.constant.ProfileConstant;
 import com.pranit.praya.model.DataSourceType;
 import com.pranit.praya.model.KnowledgeItem;
 import com.pranit.praya.model.ProjectRecord;
@@ -31,7 +31,7 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
 
     public PortfolioWebsiteSource(
             RateLimiter rateLimiter,
-            @Value("${praya.portfolio.url:" + ProfileConstants.PORTFOLIO_URL + "}") String portfolioUrl
+            @Value("${praya.portfolio.url:" + ProfileConstant.PORTFOLIO_URL + "}") String portfolioUrl
     ) {
         this.rateLimiter = rateLimiter;
         this.portfolioUrl = portfolioUrl;
@@ -44,13 +44,13 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
 
     @Override
     public List<KnowledgeItem> fetchKnowledge() {
-        this.rateLimiter.acquire(ApiConstants.RATE_LIMIT_KEY_PORTFOLIO);
+        this.rateLimiter.acquire(ApiConstant.RATE_LIMIT_KEY_PORTFOLIO);
         final long startTime = System.currentTimeMillis();
         log.info("[DATA-SOURCE] [PORTFOLIO-FETCH-START] Initiating scrape for portfolio website: {}", this.portfolioUrl);
         List<KnowledgeItem> items = new ArrayList<>();
         try {
             Document doc = Jsoup.connect(this.portfolioUrl)
-                    .userAgent(ApiConstants.BROWSER_USER_AGENT)
+                    .userAgent(ApiConstant.BROWSER_USER_AGENT)
                     .timeout(6000)
                     .followRedirects(true)
                     .get();
@@ -71,7 +71,7 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
                 items.add(KnowledgeItem.builder()
                         .id("portfolio-web-bio")
                         .source(DataSourceType.PORTFOLIO_WEBSITE)
-                        .category(ProfileConstants.CATEGORY_BIO)
+                        .category(ProfileConstant.CATEGORY_BIO)
                         .title(title.isBlank() ? "Portfolio Summary" : title)
                         .content(content)
                         .tags(List.of("portfolio", "bio", "vercel", "live", "about"))
@@ -90,7 +90,7 @@ public class PortfolioWebsiteSource implements KnowledgeSource {
                 items.add(KnowledgeItem.builder()
                         .id("portfolio-web-links")
                         .source(DataSourceType.PORTFOLIO_WEBSITE)
-                        .category(ProfileConstants.CATEGORY_CONTACT)
+                        .category(ProfileConstant.CATEGORY_CONTACT)
                         .title("Portfolio Links & Contact")
                         .content(String.join("\n", portfolioLinks))
                         .tags(List.of("portfolio", "links", "contact"))

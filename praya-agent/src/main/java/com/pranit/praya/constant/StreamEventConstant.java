@@ -6,7 +6,7 @@ import lombok.experimental.UtilityClass;
  * Constants for Server-Sent Events (SSE) streaming protocols.
  */
 @UtilityClass
-public class StreamEventConstants {
+public class StreamEventConstant {
 
     public static final String EVENT_TOKEN = "token";
     public static final String EVENT_TOOL = "tool";

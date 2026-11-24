@@ -2,7 +2,7 @@ package com.pranit.praya.chat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranit.praya.cache.service.AgentCacheService;
-import com.pranit.praya.constant.StreamEventConstants;
+import com.pranit.praya.constant.StreamEventConstant;
 import com.pranit.praya.guardrail.exception.GuardrailViolationException;
 import com.pranit.praya.guardrail.service.GuardrailService;
 import lombok.extern.slf4j.Slf4j;
@@ -46,8 +46,8 @@ public class PrayaAiService implements AiService {
         } catch (GuardrailViolationException ex) {
             log.warn("[AI-AGENT] [INPUT-BLOCKED] conversationId: {}, reason: {}", conversationId, ex.getMessage());
             return Flux.just(
-                    ChatEventStream.sse(StreamEventConstants.EVENT_ERROR, ex.getMessage()),
-                    ChatEventStream.sse(StreamEventConstants.EVENT_DONE, "")
+                    ChatEventStream.sse(StreamEventConstant.EVENT_ERROR, ex.getMessage()),
+                    ChatEventStream.sse(StreamEventConstant.EVENT_DONE, "")
             );
         }
         final String cachedAnswer = this.agentCacheService.getCachedAnswer(prompt);

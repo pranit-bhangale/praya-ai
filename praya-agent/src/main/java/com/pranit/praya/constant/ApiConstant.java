@@ -6,7 +6,7 @@ import lombok.experimental.UtilityClass;
  * Constants for external APIs, HTTP clients, and status responses.
  */
 @UtilityClass
-public class ApiConstants {
+public class ApiConstant {
 
     /**
      * GitHub API

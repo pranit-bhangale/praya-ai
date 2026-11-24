@@ -2,7 +2,7 @@ package com.pranit.praya.chat;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pranit.praya.constant.StreamEventConstants;
+import com.pranit.praya.constant.StreamEventConstant;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
@@ -21,9 +21,9 @@ public class ChatEventStream {
         this.json = json;
         this.observer = new ToolCallObservingAdvisor(event -> {
             try {
-                this.toolEvents.tryEmitNext(sse(StreamEventConstants.EVENT_TOOL, this.json.writeValueAsString(event)));
+                this.toolEvents.tryEmitNext(sse(StreamEventConstant.EVENT_TOOL, this.json.writeValueAsString(event)));
             } catch (JsonProcessingException e) {
-                this.toolEvents.tryEmitNext(sse(StreamEventConstants.EVENT_ERROR, "Failed to serialize tool event: " + e.getMessage()));
+                this.toolEvents.tryEmitNext(sse(StreamEventConstant.EVENT_ERROR, "Failed to serialize tool event: " + e.getMessage()));
             }
         });
     }
@@ -38,16 +38,16 @@ public class ChatEventStream {
 
     public ServerSentEvent<String> token(String token) {
         try {
-            return sse(StreamEventConstants.EVENT_TOKEN, this.json.writeValueAsString(token));
+            return sse(StreamEventConstant.EVENT_TOKEN, this.json.writeValueAsString(token));
         } catch (JsonProcessingException e) {
-            return sse(StreamEventConstants.EVENT_TOKEN, "\"" + token.replace("\"", "\\\"") + "\"");
+            return sse(StreamEventConstant.EVENT_TOKEN, "\"" + token.replace("\"", "\\\"") + "\"");
         }
     }
 
     public Flux<ServerSentEvent<String>> mergeWith(Flux<ServerSentEvent<String>> tokens) {
         return Flux.merge(tokens.doFinally(_ ->
                         this.toolEvents.tryEmitComplete()), this.toolEvents.asFlux())
-                .onErrorResume(e -> Flux.just(sse(StreamEventConstants.EVENT_ERROR, e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())))
-                .concatWith(Flux.just(sse(StreamEventConstants.EVENT_DONE, "")));
+                .onErrorResume(e -> Flux.just(sse(StreamEventConstant.EVENT_ERROR, e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName())))
+                .concatWith(Flux.just(sse(StreamEventConstant.EVENT_DONE, "")));
     }
 }

@@ -1,7 +1,7 @@
 package com.pranit.praya.linkedin;
 
-import com.pranit.praya.constant.ApiConstants;
-import com.pranit.praya.constant.ProfileConstants;
+import com.pranit.praya.constant.ApiConstant;
+import com.pranit.praya.constant.ProfileConstant;
 import com.pranit.praya.model.DataSourceType;
 import com.pranit.praya.model.KnowledgeItem;
 import com.pranit.praya.model.ProjectRecord;
@@ -30,7 +30,7 @@ public class LinkedInSource implements KnowledgeSource {
 
     public LinkedInSource(
             RateLimiter rateLimiter,
-            @Value("${praya.linkedin.url:" + ProfileConstants.LINKEDIN_URL + "}") String profileUrl
+            @Value("${praya.linkedin.url:" + ProfileConstant.LINKEDIN_URL + "}") String profileUrl
     ) {
         this.rateLimiter = rateLimiter;
         this.profileUrl = profileUrl;
@@ -47,9 +47,9 @@ public class LinkedInSource implements KnowledgeSource {
         log.info("[DATA-SOURCE] [LINKEDIN-FETCH-START] Initiating fetch for LinkedIn profile: {}", this.profileUrl);
 
         try {
-            this.rateLimiter.acquire(ApiConstants.RATE_LIMIT_KEY_LINKEDIN);
+            this.rateLimiter.acquire(ApiConstant.RATE_LIMIT_KEY_LINKEDIN);
             Document doc = Jsoup.connect(this.profileUrl)
-                    .userAgent(ApiConstants.BROWSER_USER_AGENT)
+                    .userAgent(ApiConstant.BROWSER_USER_AGENT)
                     .header("Accept-Language", "en-US,en;q=0.9")
                     .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
                     .timeout(6000)
@@ -59,8 +59,8 @@ public class LinkedInSource implements KnowledgeSource {
             String pageTitle = doc.title();
             String location = doc.location();
 
-            if (location.contains(ApiConstants.LINKEDIN_AUTHWALL_PATH)
-                    || location.contains(ApiConstants.LINKEDIN_LOGIN_PATH)
+            if (location.contains(ApiConstant.LINKEDIN_AUTHWALL_PATH)
+                    || location.contains(ApiConstant.LINKEDIN_LOGIN_PATH)
                     || pageTitle.toLowerCase().contains("authwall")) {
                 log.warn("[DATA-SOURCE] [LINKEDIN-AUTHWALL] LinkedIn AuthWall gate detected (location: {}). Live profile data blocked by LinkedIn.", location);
                 return List.of();
@@ -74,7 +74,7 @@ public class LinkedInSource implements KnowledgeSource {
                 items.add(KnowledgeItem.builder()
                         .id("linkedin-live-opengraph")
                         .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_PROFILE)
+                        .category(ProfileConstant.CATEGORY_PROFILE)
                         .title("Live LinkedIn Profile: " + (ogTitle.isBlank() ? pageTitle : ogTitle))
                         .content("Headline & Summary: " + ogDesc + " | Profile Link: " + this.profileUrl)
                         .tags(List.of("linkedin", "live", "opengraph", "headline", "profile"))

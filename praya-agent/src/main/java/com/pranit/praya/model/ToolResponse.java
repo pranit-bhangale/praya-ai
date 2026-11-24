@@ -1,6 +1,6 @@
 package com.pranit.praya.model;
 
-import com.pranit.praya.constant.ApiConstants;
+import com.pranit.praya.constant.ApiConstant;
 import lombok.Builder;
 
 /**
@@ -17,7 +17,7 @@ public record ToolResponse<T>(
 
     public static <T> ToolResponse<T> success(DataSourceType source, int count, T data) {
         return ToolResponse.<T>builder()
-                .status(ApiConstants.STATUS_SUCCESS)
+                .status(ApiConstant.STATUS_SUCCESS)
                 .source(source)
                 .count(count)
                 .data(data)
@@ -27,7 +27,7 @@ public record ToolResponse<T>(
 
     public static <T> ToolResponse<T> notAvailable(DataSourceType source, String userFriendlyMessage) {
         return ToolResponse.<T>builder()
-                .status(ApiConstants.STATUS_NOT_AVAILABLE)
+                .status(ApiConstant.STATUS_NOT_AVAILABLE)
                 .source(source)
                 .count(0)
                 .data(null)
@@ -39,7 +39,7 @@ public record ToolResponse<T>(
 
     public static <T> ToolResponse<T> error(DataSourceType source, String userFriendlyMessage) {
         return ToolResponse.<T>builder()
-                .status(ApiConstants.STATUS_ERROR)
+                .status(ApiConstant.STATUS_ERROR)
                 .source(source)
                 .count(0)
                 .data(null)

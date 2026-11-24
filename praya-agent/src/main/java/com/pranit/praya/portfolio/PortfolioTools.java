@@ -3,8 +3,8 @@ package com.pranit.praya.portfolio;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranit.praya.cache.config.CacheConfig;
-import com.pranit.praya.constant.ApiConstants;
-import com.pranit.praya.constant.ProfileConstants;
+import com.pranit.praya.constant.ApiConstant;
+import com.pranit.praya.constant.ProfileConstant;
 import com.pranit.praya.model.BlogArticle;
 import com.pranit.praya.model.DataSourceType;
 import com.pranit.praya.model.KnowledgeItem;
@@ -57,12 +57,12 @@ public class PortfolioTools {
     @Cacheable(cacheNames = CacheConfig.CACHE_PORTFOLIO_KNOWLEDGE, key = "'contact-info'")
     public String getContactInformation() {
         Map<String, String> contactInfo = Map.of(
-                "name", ProfileConstants.NAME,
-                "email", ProfileConstants.EMAIL,
-                "linkedinUrl", ProfileConstants.LINKEDIN_URL,
-                "portfolioUrl", ProfileConstants.PORTFOLIO_URL,
-                "githubUrl", ProfileConstants.GITHUB_URL,
-                "preferredChannel", "Email (" + ProfileConstants.EMAIL + ") or LinkedIn for direct engineering and collaboration inquiries."
+                "name", ProfileConstant.NAME,
+                "email", ProfileConstant.EMAIL,
+                "linkedinUrl", ProfileConstant.LINKEDIN_URL,
+                "portfolioUrl", ProfileConstant.PORTFOLIO_URL,
+                "githubUrl", ProfileConstant.GITHUB_URL,
+                "preferredChannel", "Email (" + ProfileConstant.EMAIL + ") or LinkedIn for direct engineering and collaboration inquiries."
         );
         return serializeToJson(ToolResponse.success(DataSourceType.PORTFOLIO_WEBSITE, 1, contactInfo));
     }
@@ -72,7 +72,7 @@ public class PortfolioTools {
             return this.objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
         } catch (JsonProcessingException e) {
             log.error("[TOOL] [PORTFOLIO-SERIALIZE-ERROR] Failed to serialize portfolio tool response: {}", e.getMessage(), e);
-            return "{\"status\":\"" + ApiConstants.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
+            return "{\"status\":\"" + ApiConstant.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
         }
     }
 
@@ -102,11 +102,11 @@ public class PortfolioTools {
     public String getPortfolioSummary() {
         try {
             List<KnowledgeItem> items = this.portfolioWebsiteSource.fetchKnowledge();
-            String bio = ProfileConstants.DEFAULT_BIO;
-            String title = ProfileConstants.NAME + " — Systems & Backend Engineer";
+            String bio = ProfileConstant.DEFAULT_BIO;
+            String title = ProfileConstant.NAME + " — Systems & Backend Engineer";
             if (!items.isEmpty()) {
                 Optional<KnowledgeItem> bioItem = items.stream()
-                        .filter(k -> ProfileConstants.CATEGORY_BIO.equalsIgnoreCase(k.category()))
+                        .filter(k -> ProfileConstant.CATEGORY_BIO.equalsIgnoreCase(k.category()))
                         .findFirst();
                 if (bioItem.isPresent()) {
                     title = bioItem.get().title();
@@ -115,22 +115,22 @@ public class PortfolioTools {
             }
 
             Map<String, String> summary = Map.of(
-                    "name", ProfileConstants.NAME,
+                    "name", ProfileConstant.NAME,
                     "title", title,
                     "bio", bio,
-                    "portfolioUrl", ProfileConstants.PORTFOLIO_URL,
-                    "githubUrl", ProfileConstants.GITHUB_URL,
-                    "linkedinUrl", ProfileConstants.LINKEDIN_URL
+                    "portfolioUrl", ProfileConstant.PORTFOLIO_URL,
+                    "githubUrl", ProfileConstant.GITHUB_URL,
+                    "linkedinUrl", ProfileConstant.LINKEDIN_URL
             );
             return serializeToJson(ToolResponse.success(DataSourceType.PORTFOLIO_WEBSITE, 1, summary));
         } catch (Exception e) {
             log.error("[TOOL] [PORTFOLIO-SUMMARY-ERROR] Live fetch error: {}", e.getMessage(), e);
             Map<String, String> summary = Map.of(
-                    "name", ProfileConstants.NAME,
-                    "bio", ProfileConstants.DEFAULT_BIO,
-                    "portfolioUrl", ProfileConstants.PORTFOLIO_URL,
-                    "githubUrl", ProfileConstants.GITHUB_URL,
-                    "linkedinUrl", ProfileConstants.LINKEDIN_URL
+                    "name", ProfileConstant.NAME,
+                    "bio", ProfileConstant.DEFAULT_BIO,
+                    "portfolioUrl", ProfileConstant.PORTFOLIO_URL,
+                    "githubUrl", ProfileConstant.GITHUB_URL,
+                    "linkedinUrl", ProfileConstant.LINKEDIN_URL
             );
             return serializeToJson(ToolResponse.success(DataSourceType.PORTFOLIO_WEBSITE, 1, summary));
         }
@@ -197,7 +197,7 @@ public class PortfolioTools {
         try {
             List<KnowledgeItem> items = this.portfolioWebsiteSource.fetchKnowledge()
                     .stream()
-                    .filter(k -> ProfileConstants.CATEGORY_BLOG.equalsIgnoreCase(k.category()))
+                    .filter(k -> ProfileConstant.CATEGORY_BLOG.equalsIgnoreCase(k.category()))
                     .toList();
             if (items.isEmpty()) {
                 return serializeToJson(ToolResponse.notAvailable(DataSourceType.PORTFOLIO_WEBSITE, "Blog articles are currently not available from the live website."));
@@ -207,7 +207,7 @@ public class PortfolioTools {
                             .id(k.id())
                             .title(k.title())
                             .summary(k.content())
-                            .url(ProfileConstants.PORTFOLIO_URL)
+                            .url(ProfileConstant.PORTFOLIO_URL)
                             .tags(k.tags())
                             .readingTime("N/A")
                             .build())

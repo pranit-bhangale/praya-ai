@@ -1,7 +1,7 @@
 package com.pranit.praya.controller;
 
 import com.pranit.praya.chat.AiService;
-import com.pranit.praya.constant.AiConstants;
+import com.pranit.praya.constant.AiConstant;
 import com.pranit.praya.model.ChatRequest;
 import com.pranit.praya.ratelimit.annotation.RateLimit;
 import com.pranit.praya.ratelimit.annotation.RateLimits;
@@ -57,7 +57,7 @@ public class AgentController {
     })
     @PostMapping(value = "/chat", version = "v1", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> chat(@RequestBody @Valid ChatRequest request) {
-        final String conversationId = StringUtils.hasText(request.conversationId()) ? request.conversationId() : AiConstants.DEFAULT_CONVERSATION_ID;
+        final String conversationId = StringUtils.hasText(request.conversationId()) ? request.conversationId() : AiConstant.DEFAULT_CONVERSATION_ID;
         final int promptLen = request.prompt() != null ? request.prompt().length() : 0;
         log.info("[AI-AGENT] [INCOMING-REQUEST] conversationId: {}, promptLength: {}", conversationId, promptLen);
         return this.aiService.askAiAgent(request.prompt(), conversationId);

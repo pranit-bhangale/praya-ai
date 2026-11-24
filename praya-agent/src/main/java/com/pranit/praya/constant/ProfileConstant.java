@@ -6,7 +6,7 @@ import lombok.experimental.UtilityClass;
  * Verified personal and profile constants for Pranit Bhangale.
  */
 @UtilityClass
-public class ProfileConstants {
+public class ProfileConstant {
 
     public static final String NAME = "Pranit Bhangale";
     public static final String EMAIL = "pranitbhangale14@gmail.com";

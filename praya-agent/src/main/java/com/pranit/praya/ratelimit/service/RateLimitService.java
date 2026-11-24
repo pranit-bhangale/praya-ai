@@ -1,6 +1,6 @@
 package com.pranit.praya.ratelimit.service;
 
-import com.pranit.praya.constant.ApiConstants;
+import com.pranit.praya.constant.ApiConstant;
 import com.pranit.praya.ratelimit.RateLimiter;
 import com.pranit.praya.ratelimit.annotation.RateLimit;
 import com.pranit.praya.ratelimit.model.RateLimitPolicy;
@@ -42,9 +42,9 @@ public class RateLimitService implements RateLimiter {
 
         long effectiveDelay = Math.max(0, defaultDelayMs);
         // Pre-configure standard domain policies using sliding window
-        configureDomain(ApiConstants.RATE_LIMIT_KEY_GITHUB, 5, 1000, 0, effectiveDelay);
-        configureDomain(ApiConstants.RATE_LIMIT_KEY_LINKEDIN, 1, 1000, 0, Math.max(500, effectiveDelay * 10));
-        configureDomain(ApiConstants.RATE_LIMIT_KEY_PORTFOLIO, 10, 1000, 0, Math.min(50, effectiveDelay));
+        configureDomain(ApiConstant.RATE_LIMIT_KEY_GITHUB, 5, 1000, 0, effectiveDelay);
+        configureDomain(ApiConstant.RATE_LIMIT_KEY_LINKEDIN, 1, 1000, 0, Math.max(500, effectiveDelay * 10));
+        configureDomain(ApiConstant.RATE_LIMIT_KEY_PORTFOLIO, 10, 1000, 0, Math.min(50, effectiveDelay));
     }
 
     public void configureDomain(String domainKey, int limit, long windowMs, long cooldownMs, long minDelayMs) {

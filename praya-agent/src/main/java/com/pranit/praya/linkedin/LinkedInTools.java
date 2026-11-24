@@ -3,8 +3,8 @@ package com.pranit.praya.linkedin;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranit.praya.cache.config.CacheConfig;
-import com.pranit.praya.constant.ApiConstants;
-import com.pranit.praya.constant.ProfileConstants;
+import com.pranit.praya.constant.ApiConstant;
+import com.pranit.praya.constant.ProfileConstant;
 import com.pranit.praya.model.CertificationRecord;
 import com.pranit.praya.model.DataSourceType;
 import com.pranit.praya.model.EducationSummary;
@@ -59,8 +59,8 @@ public class LinkedInTools {
     public String listEducationSummary() {
         try {
             List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
-                    .filter(item -> ProfileConstants.CATEGORY_EDUCATION.equalsIgnoreCase(item.category())
-                            || ProfileConstants.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
+                    .filter(item -> ProfileConstant.CATEGORY_EDUCATION.equalsIgnoreCase(item.category())
+                            || ProfileConstant.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
                     .toList();
             if (!items.isEmpty()) {
                 List<EducationSummary> summaries = items.stream()
@@ -97,7 +97,7 @@ public class LinkedInTools {
             return this.objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
         } catch (JsonProcessingException e) {
             log.error("[TOOL] [LINKEDIN-SERIALIZE-ERROR] Failed to serialize LinkedIn tool response: {}", e.getMessage(), e);
-            return "{\"status\":\"" + ApiConstants.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
+            return "{\"status\":\"" + ApiConstant.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
         }
     }
 
@@ -140,8 +140,8 @@ public class LinkedInTools {
     ) {
         try {
             List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
-                    .filter(item -> ProfileConstants.CATEGORY_EDUCATION.equalsIgnoreCase(item.category())
-                            || ProfileConstants.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
+                    .filter(item -> ProfileConstant.CATEGORY_EDUCATION.equalsIgnoreCase(item.category())
+                            || ProfileConstant.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
                     .toList();
             if (!items.isEmpty()) {
                 if (credentialName != null && !credentialName.isBlank()) {
@@ -166,15 +166,15 @@ public class LinkedInTools {
                 KnowledgeItem.builder()
                         .id("education-overview")
                         .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_EDUCATION)
+                        .category(ProfileConstant.CATEGORY_EDUCATION)
                         .title("Academic Degrees & Qualifications Overview")
-                        .content(ProfileConstants.EDUCATION_CONTENT.trim())
+                        .content(ProfileConstant.EDUCATION_CONTENT.trim())
                         .tags(List.of("education", "degrees", "overview", "sppu", "cdac", "iet", "qualifications"))
                         .build(),
                 KnowledgeItem.builder()
                         .id("education-pgdac-cdac")
                         .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_EDUCATION)
+                        .category(ProfileConstant.CATEGORY_EDUCATION)
                         .title("Post Graduate Diploma in Advanced Computing (PG-DAC) - CDAC ACTS")
                         .content("Post Graduate Diploma in Advanced Computing (PG-DAC) from Institute of Emerging Technologies (IET), CDAC ACTS.\n" +
                                 "Specialized Curriculum: Object-Oriented Programming (Java, C++), Spring Framework & Spring Boot, Microservices, " +
@@ -184,7 +184,7 @@ public class LinkedInTools {
                 KnowledgeItem.builder()
                         .id("education-be-sppu")
                         .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_EDUCATION)
+                        .category(ProfileConstant.CATEGORY_EDUCATION)
                         .title("Bachelor of Engineering (BE) in Electronics & Telecommunication - Pune University")
                         .content("Bachelor of Engineering in Electronics & Telecommunication from Savitribai Phule Pune University (SPPU).\n" +
                                 "Core Domains: Object-Oriented Programming, Computer Networks, Embedded Systems, Microprocessors & Microcontrollers, and Software Engineering.")
@@ -229,7 +229,7 @@ public class LinkedInTools {
             List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge();
             if (!items.isEmpty()) {
                 String headline = items.stream()
-                        .filter(k -> ProfileConstants.CATEGORY_PROFILE.equalsIgnoreCase(k.category()))
+                        .filter(k -> ProfileConstant.CATEGORY_PROFILE.equalsIgnoreCase(k.category()))
                         .map(KnowledgeItem::content)
                         .findFirst()
                         .orElse(items.getFirst().content());
@@ -239,7 +239,7 @@ public class LinkedInTools {
             log.warn("[TOOL] [LINKEDIN-CAREER-FALLBACK] Live fetch unavailable ({}), serving verified career overview.", e.getMessage());
         }
 
-        String headline = ProfileConstants.NAME + " — " + ProfileConstants.DEFAULT_BIO;
+        String headline = ProfileConstant.NAME + " — " + ProfileConstant.DEFAULT_BIO;
         return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, headline));
     }
 
@@ -267,7 +267,7 @@ public class LinkedInTools {
     public String getArchitecturePhilosophy() {
         try {
             List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
-                    .filter(item -> ProfileConstants.CATEGORY_EXPERIENCE.equalsIgnoreCase(item.category()))
+                    .filter(item -> ProfileConstant.CATEGORY_EXPERIENCE.equalsIgnoreCase(item.category()))
                     .toList();
             if (!items.isEmpty()) {
                 return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, items.size(), items));
@@ -280,9 +280,9 @@ public class LinkedInTools {
                 KnowledgeItem.builder()
                         .id("career-philosophy-baseline")
                         .source(DataSourceType.LINKEDIN)
-                        .category(ProfileConstants.CATEGORY_EXPERIENCE)
+                        .category(ProfileConstant.CATEGORY_EXPERIENCE)
                         .title("Core Engineering Philosophy & Architecture")
-                        .content(ProfileConstants.PHILOSOPHY_CONTENT.trim())
+                        .content(ProfileConstant.PHILOSOPHY_CONTENT.trim())
                         .tags(List.of("clean-architecture", "solid", "tdd", "reactive-streams", "distributed-systems"))
                         .build()
         );
@@ -316,7 +316,7 @@ public class LinkedInTools {
     public String fetchCertifications() {
         try {
             List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
-                    .filter(item -> ProfileConstants.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
+                    .filter(item -> ProfileConstant.CATEGORY_CERTIFICATION.equalsIgnoreCase(item.category()))
                     .toList();
             if (!items.isEmpty()) {
                 List<CertificationRecord> certs = items.stream()
@@ -325,7 +325,7 @@ public class LinkedInTools {
                                 .issuingAuthority("LinkedIn Verified Body")
                                 .credentialType("Certification / Credential")
                                 .credentialId(k.id())
-                                .verificationUrl(ProfileConstants.LINKEDIN_URL)
+                                .verificationUrl(ProfileConstant.LINKEDIN_URL)
                                 .details(k.content())
                                 .build())
                         .toList();
@@ -341,7 +341,7 @@ public class LinkedInTools {
                         .issuingAuthority("Institute of Emerging Technologies (IET), CDAC ACTS")
                         .credentialType("Post Graduate Diploma / Accredited Credential")
                         .credentialId("CDAC-PGDAC-VERIFIED")
-                        .verificationUrl(ProfileConstants.LINKEDIN_URL)
+                        .verificationUrl(ProfileConstant.LINKEDIN_URL)
                         .details("Specialized post-graduate diploma covering Java, Spring Boot, Microservices, Systems Engineering, and Algorithms.")
                         .build()
         );
@@ -375,7 +375,7 @@ public class LinkedInTools {
     public String fetchLinkedInPosts() {
         try {
             List<KnowledgeItem> items = this.linkedInSource.fetchKnowledge().stream()
-                    .filter(item -> ProfileConstants.CATEGORY_POSTS.equalsIgnoreCase(item.category()))
+                    .filter(item -> ProfileConstant.CATEGORY_POSTS.equalsIgnoreCase(item.category()))
                     .toList();
             if (items.isEmpty()) {
                 return serializeToJson(ToolResponse.notAvailable(DataSourceType.LINKEDIN, "LinkedIn posts and publications are currently not available."));
@@ -386,7 +386,7 @@ public class LinkedInTools {
                             .title(k.title())
                             .platform("LinkedIn")
                             .summary(k.content())
-                            .url(ProfileConstants.LINKEDIN_URL)
+                            .url(ProfileConstant.LINKEDIN_URL)
                             .topics(k.tags())
                             .build())
                     .toList();
@@ -428,7 +428,7 @@ public class LinkedInTools {
                 Map<String, String> data = Map.of(
                         "title", profileItem.title(),
                         "summary", profileItem.content(),
-                        "profileUrl", ProfileConstants.LINKEDIN_URL
+                        "profileUrl", ProfileConstant.LINKEDIN_URL
                 );
                 return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, data));
             }
@@ -437,9 +437,9 @@ public class LinkedInTools {
         }
 
         Map<String, String> data = Map.of(
-                "title", ProfileConstants.NAME + " — " + ProfileConstants.DEFAULT_BIO,
-                "summary", ProfileConstants.PHILOSOPHY_CONTENT.trim(),
-                "profileUrl", ProfileConstants.LINKEDIN_URL
+                "title", ProfileConstant.NAME + " — " + ProfileConstant.DEFAULT_BIO,
+                "summary", ProfileConstant.PHILOSOPHY_CONTENT.trim(),
+                "profileUrl", ProfileConstant.LINKEDIN_URL
         );
         return serializeToJson(ToolResponse.success(DataSourceType.LINKEDIN, 1, data));
     }

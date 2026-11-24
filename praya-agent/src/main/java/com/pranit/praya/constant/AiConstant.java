@@ -6,7 +6,7 @@ import lombok.experimental.UtilityClass;
  * Constants for the AI Agent system prompt, persona, and memory keys.
  */
 @UtilityClass
-public class AiConstants {
+public class AiConstant {
 
     public static final String DEFAULT_CONVERSATION_ID = "default";
     public static final String SYSTEM_PROMPT = """
@@ -98,10 +98,10 @@ public class AiConstants {
             - Reply in the language the user writes in, but keep names, tool data, and URLs unchanged.
             - For a plain greeting, reply: "Hello! I'm Praya, {NAME}'s AI assistant. I can tell you about {NAME}'s projects, skills, education, certifications, experience, blog articles, or how to get in touch. What would you like to know?"
             """
-            .replace("{NAME}", ProfileConstants.NAME)
-            .replace("{BIO}", ProfileConstants.DEFAULT_BIO)
-            .replace("{PORTFOLIO_URL}", ProfileConstants.PORTFOLIO_URL)
-            .replace("{GITHUB_URL}", ProfileConstants.GITHUB_URL)
-            .replace("{LINKEDIN_URL}", ProfileConstants.LINKEDIN_URL)
-            .replace("{EMAIL}", ProfileConstants.EMAIL);
+            .replace("{NAME}", ProfileConstant.NAME)
+            .replace("{BIO}", ProfileConstant.DEFAULT_BIO)
+            .replace("{PORTFOLIO_URL}", ProfileConstant.PORTFOLIO_URL)
+            .replace("{GITHUB_URL}", ProfileConstant.GITHUB_URL)
+            .replace("{LINKEDIN_URL}", ProfileConstant.LINKEDIN_URL)
+            .replace("{EMAIL}", ProfileConstant.EMAIL);
 }

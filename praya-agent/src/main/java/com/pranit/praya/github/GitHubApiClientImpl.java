@@ -1,6 +1,6 @@
 package com.pranit.praya.github;
 
-import com.pranit.praya.constant.ApiConstants;
+import com.pranit.praya.constant.ApiConstant;
 import com.pranit.praya.ratelimit.RateLimiter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -46,7 +46,7 @@ public final class GitHubApiClientImpl implements GitHubApiClient {
         int page = 1;
         while (true) {
             final int currentPage = page;
-            this.rateLimiter.acquire(ApiConstants.RATE_LIMIT_KEY_GITHUB);
+            this.rateLimiter.acquire(ApiConstant.RATE_LIMIT_KEY_GITHUB);
             List<Map<String, Object>> repositories = client()
                     .get()
                     .uri(uriBuilder -> uriBuilder
@@ -69,7 +69,7 @@ public final class GitHubApiClientImpl implements GitHubApiClient {
 
     @Override
     public Map<String, Object> getUserProfile(String username) {
-        this.rateLimiter.acquire(ApiConstants.RATE_LIMIT_KEY_GITHUB);
+        this.rateLimiter.acquire(ApiConstant.RATE_LIMIT_KEY_GITHUB);
         return client()
                 .get()
                 .uri("/users/{username}", username)

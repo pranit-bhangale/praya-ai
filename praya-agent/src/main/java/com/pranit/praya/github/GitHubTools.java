@@ -3,8 +3,8 @@ package com.pranit.praya.github;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pranit.praya.cache.config.CacheConfig;
-import com.pranit.praya.constant.ApiConstants;
-import com.pranit.praya.constant.ProfileConstants;
+import com.pranit.praya.constant.ApiConstant;
+import com.pranit.praya.constant.ProfileConstant;
 import com.pranit.praya.model.DataSourceType;
 import com.pranit.praya.model.GitHubRepoRecord;
 import com.pranit.praya.model.KnowledgeItem;
@@ -77,7 +77,7 @@ public class GitHubTools {
             return this.objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(response);
         } catch (JsonProcessingException e) {
             log.error("[TOOL] [GITHUB-SERIALIZE-ERROR] Failed to serialize GitHub tool response: {}", e.getMessage(), e);
-            return "{\"status\":\"" + ApiConstants.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
+            return "{\"status\":\"" + ApiConstant.STATUS_ERROR + "\",\"message\":\"JSON serialization failed: " + e.getMessage() + "\"}";
         }
     }
 
@@ -169,7 +169,7 @@ public class GitHubTools {
     public String getSkillsSummary() {
         try {
             List<KnowledgeItem> skills = this.gitHubSource.fetchKnowledge().stream()
-                    .filter(k -> ProfileConstants.CATEGORY_SKILLS.equalsIgnoreCase(k.category()))
+                    .filter(k -> ProfileConstant.CATEGORY_SKILLS.equalsIgnoreCase(k.category()))
                     .toList();
             if (!skills.isEmpty()) {
                 return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, skills.size(), skills));
@@ -183,9 +183,9 @@ public class GitHubTools {
                 KnowledgeItem.builder()
                         .id("skills-summary-baseline")
                         .source(DataSourceType.GITHUB)
-                        .category(ProfileConstants.CATEGORY_SKILLS)
+                        .category(ProfileConstant.CATEGORY_SKILLS)
                         .title("Core Technical Stack & Languages")
-                        .content(ProfileConstants.TECH_STACK_CONTENT.trim())
+                        .content(ProfileConstant.TECH_STACK_CONTENT.trim())
                         .tags(List.of("java", "spring boot", "react", "docker", "aws", "postgresql", "redis"))
                         .build()
         );
@@ -217,8 +217,8 @@ public class GitHubTools {
     public String getSkillsDeepDive() {
         try {
             List<KnowledgeItem> allKnowledge = this.gitHubSource.fetchKnowledge().stream()
-                    .filter(k -> ProfileConstants.CATEGORY_SKILLS.equalsIgnoreCase(k.category())
-                            || ProfileConstants.CATEGORY_EXPERIENCE.equalsIgnoreCase(k.category()))
+                    .filter(k -> ProfileConstant.CATEGORY_SKILLS.equalsIgnoreCase(k.category())
+                            || ProfileConstant.CATEGORY_EXPERIENCE.equalsIgnoreCase(k.category()))
                     .toList();
             if (!allKnowledge.isEmpty()) {
                 return serializeToJson(ToolResponse.success(DataSourceType.GITHUB, allKnowledge.size(), allKnowledge));
@@ -230,7 +230,7 @@ public class GitHubTools {
                 KnowledgeItem.builder()
                         .id("skills-deepdive-languages")
                         .source(DataSourceType.GITHUB)
-                        .category(ProfileConstants.CATEGORY_SKILLS)
+                        .category(ProfileConstant.CATEGORY_SKILLS)
                         .title("Programming Languages & Core Runtimes")
                         .content("Java (21, 25), Python, TypeScript, JavaScript, SQL, C++.\n" +
                                 "Core competencies in JVM internals, memory management, garbage collection tuning, multithreading, and concurrent primitives.")
@@ -239,7 +239,7 @@ public class GitHubTools {
                 KnowledgeItem.builder()
                         .id("skills-deepdive-frameworks")
                         .source(DataSourceType.GITHUB)
-                        .category(ProfileConstants.CATEGORY_SKILLS)
+                        .category(ProfileConstant.CATEGORY_SKILLS)
                         .title("Frameworks & Systems Architecture")
                         .content("Spring Boot 3/4, Spring AI, Spring WebFlux, Project Reactor, Hibernate/JPA, React.js, ASP.NET Web API, RESTful APIs, STOMP over WebSockets.\n" +
                                 "Reactive and event-driven patterns with non-blocking I/O.")
@@ -248,7 +248,7 @@ public class GitHubTools {
                 KnowledgeItem.builder()
                         .id("skills-deepdive-infrastructure")
                         .source(DataSourceType.GITHUB)
-                        .category(ProfileConstants.CATEGORY_SKILLS)
+                        .category(ProfileConstant.CATEGORY_SKILLS)
                         .title("Cloud, Persistence & DevOps Infrastructure")
                         .content("PostgreSQL, MySQL, Redis (caching and pub/sub), Docker containerization, AWS, Render, Vercel, Git/GitHub, CI/CD automated deployment pipelines.")
                         .tags(List.of("infrastructure", "docker", "aws", "postgresql", "redis", "ci/cd"))
@@ -256,9 +256,9 @@ public class GitHubTools {
                 KnowledgeItem.builder()
                         .id("skills-deepdive-practices")
                         .source(DataSourceType.GITHUB)
-                        .category(ProfileConstants.CATEGORY_EXPERIENCE)
+                        .category(ProfileConstant.CATEGORY_EXPERIENCE)
                         .title("Engineering Practices & Architectural Philosophy")
-                        .content(ProfileConstants.PHILOSOPHY_CONTENT.trim())
+                        .content(ProfileConstant.PHILOSOPHY_CONTENT.trim())
                         .tags(List.of("clean-architecture", "solid", "tdd", "reactive-streams"))
                         .build()
         );

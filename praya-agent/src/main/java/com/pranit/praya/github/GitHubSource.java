@@ -1,6 +1,6 @@
 package com.pranit.praya.github;
 
-import com.pranit.praya.constant.ProfileConstants;
+import com.pranit.praya.constant.ProfileConstant;
 import com.pranit.praya.model.DataSourceType;
 import com.pranit.praya.model.KnowledgeItem;
 import com.pranit.praya.model.ProjectRecord;
@@ -27,7 +27,7 @@ public class GitHubSource implements KnowledgeSource {
 
     public GitHubSource(
             GitHubApiClient gitHubApiClient,
-            @Value("${praya.github.username:" + ProfileConstants.DEFAULT_GITHUB_USERNAME + "}") String username
+            @Value("${praya.github.username:" + ProfileConstant.DEFAULT_GITHUB_USERNAME + "}") String username
     ) {
         this.gitHubApiClient = gitHubApiClient;
         this.username = username;
@@ -57,7 +57,7 @@ public class GitHubSource implements KnowledgeSource {
                         KnowledgeItem.builder()
                                 .id("github-live-profile")
                                 .source(DataSourceType.GITHUB)
-                                .category(ProfileConstants.CATEGORY_PROFILE)
+                                .category(ProfileConstant.CATEGORY_PROFILE)
                                 .title("Live GitHub Profile: " + name)
                                 .content(String.format(
                                         "GitHub Profile: %s | Name: %s | Bio: %s | Public Repositories: %d | Followers: %d | Location: %s | Company: %s | Website: %s",

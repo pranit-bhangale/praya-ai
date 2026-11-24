@@ -1,6 +1,6 @@
 package com.pranit.praya.config;
 
-import com.pranit.praya.constant.AiConstants;
+import com.pranit.praya.constant.AiConstant;
 import com.pranit.praya.github.GitHubTools;
 import com.pranit.praya.guardrail.advisor.StrictGuardrailAdvisor;
 import com.pranit.praya.guardrail.advisor.StrictGuardrailAdvisor.Stage;
@@ -92,7 +92,7 @@ public class AiConfig {
             PortfolioTools portfolioTools
     ) {
         return builder
-                .defaultSystem(AiConstants.SYSTEM_PROMPT)
+                .defaultSystem(AiConstant.SYSTEM_PROMPT)
                 .defaultTools(gitHubTools, linkedInTools, portfolioTools)
                 .defaultAdvisors(inputGuardrailAdvisor, memoryAdvisor, outputGuardrailAdvisor)
                 .build();
