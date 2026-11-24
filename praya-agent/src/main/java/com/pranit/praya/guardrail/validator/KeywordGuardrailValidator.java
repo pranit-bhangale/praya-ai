@@ -10,11 +10,10 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.regex.Pattern;
 
 /**
- * Concrete validator strategy for case-insensitive blocked word detection.
+ * Concrete validator strategy for case-insensitive, whole-word blocked word detection (INPUT only).
  */
 @Component
 public class KeywordGuardrailValidator implements GuardrailValidator {
@@ -43,11 +42,10 @@ public class KeywordGuardrailValidator implements GuardrailValidator {
     @Override
     public GuardrailResult validate(String text, ValidationPhase phase) {
         if (!StringUtils.hasText(text) || this.blockedPatterns.isEmpty()) return GuardrailResult.success(text);
-        final String lowerText = text.toLowerCase(Locale.ROOT);
         final List<GuardrailViolation> violations = new ArrayList<>();
         final String fallbackMessage = phase == ValidationPhase.INPUT
                 ? this.properties.inputViolationMessage() : this.properties.outputViolationMessage();
-        for (Pattern  blockedWord : this.blockedPatterns) {
+        for (Pattern blockedWord : this.blockedPatterns) {
             if (blockedWord.matcher(text).find()) {
                 violations.add(new GuardrailViolation(
                         phase,
@@ -64,6 +62,6 @@ public class KeywordGuardrailValidator implements GuardrailValidator {
 
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        return Ordered.HIGHEST_PRECEDENCE + 5;
     }
 }

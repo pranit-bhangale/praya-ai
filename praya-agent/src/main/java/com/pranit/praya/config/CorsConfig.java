@@ -1,5 +1,7 @@
 package com.pranit.praya.config;
 
+import com.pranit.praya.properties.CorsProperties;
+import com.pranit.praya.version.VersionParser;
 import org.jspecify.annotations.NonNull;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,8 +11,6 @@ import org.springframework.web.filter.CorsFilter;
 import org.springframework.web.servlet.config.annotation.ApiVersionConfigurer;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
-
-import java.util.List;
 
 /**
  * Centralized Web MVC and CORS Configuration dynamically driven by {@link CorsProperties}.
@@ -27,42 +27,36 @@ public class CorsConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(@NonNull CorsRegistry registry) {
-        registry.addMapping(this.corsProperties.pathPattern())
-                .allowedOriginPatterns(this.corsProperties.allowedOrigins().toArray(new String[0]))
-                .allowedMethods(this.corsProperties.allowedMethods().toArray(new String[0]))
-                .allowedHeaders(this.corsProperties.allowedHeaders())
-                .exposedHeaders(this.corsProperties.exposedHeaders().toArray(new String[0]))
-                .allowCredentials(this.corsProperties.allowCredentials())
-                .maxAge(this.corsProperties.maxAge());
+        registry.addMapping(corsProperties.pathPattern())
+                .allowedOriginPatterns(corsProperties.allowedOrigins().toArray(String[]::new))
+                .allowedMethods(corsProperties.allowedMethods().toArray(String[]::new))
+                .allowedHeaders(corsProperties.allowedHeaders().toArray(String[]::new))
+                .exposedHeaders(corsProperties.exposedHeaders().toArray(String[]::new))
+                .allowCredentials(corsProperties.allowCredentials())
+                .maxAge(corsProperties.maxAge());
     }
 
     @Bean
     public CorsFilter corsFilter() {
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = this.corsProperties.allowedOrigins();
-        if (origins != null && !origins.isEmpty()) {
-            for (String origin : origins) {
-                config.addAllowedOriginPattern(origin);
-            }
-        } else {
-            config.addAllowedOriginPattern("http://localhost:*");
-            config.addAllowedOriginPattern("http://127.0.0.1:*");
-            config.addAllowedOriginPattern("https://*.vercel.app");
-        }
-        config.setAllowedMethods(this.corsProperties.allowedMethods());
-        config.addAllowedHeader(this.corsProperties.allowedHeaders());
-        config.setExposedHeaders(this.corsProperties.exposedHeaders());
-        config.setAllowCredentials(this.corsProperties.allowCredentials());
-        config.setMaxAge(this.corsProperties.maxAge());
-        source.registerCorsConfiguration(this.corsProperties.pathPattern(), config);
+        config.setAllowedOriginPatterns(corsProperties.allowedOrigins());
+        config.setAllowedMethods(corsProperties.allowedMethods());
+        config.setAllowedHeaders(corsProperties.allowedHeaders());
+        config.setExposedHeaders(corsProperties.exposedHeaders());
+        config.setAllowCredentials(corsProperties.allowCredentials());
+        config.setMaxAge(corsProperties.maxAge());
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration(corsProperties.pathPattern(), config);
         return new CorsFilter(source);
     }
 
     @Override
-    public void configureApiVersioning(@NonNull ApiVersionConfigurer configurer) {
-        configurer.useRequestHeader("X-API-Version")
+    public void configureApiVersioning(ApiVersionConfigurer configurer) {
+        configurer
+                .useRequestHeader("X-API-Version")
+                .setVersionParser(new VersionParser())
+                .addSupportedVersions("v1")
                 .setDefaultVersion("v1")
-                .setVersionRequired(false);
+                .detectSupportedVersions(false);
     }
 }

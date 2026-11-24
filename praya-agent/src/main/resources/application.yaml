@@ -1,13 +1,36 @@
+# SERVER
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
   forward-headers-strategy: framework
+  max-http-request-header-size: 8KB
+  compression:
+    enabled: true
+    mime-types: application/json,text/plain,text/event-stream
+    min-response-size: 1KB
+  error:
+    include-message: never
+    include-stacktrace: never
+    include-binding-errors: never
+# SPRING CORE
 spring:
   application:
     name: praya-agent
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   threads:
     virtual:
       enabled: true
-  # Spring AI Configuration
+  main:
+    banner-mode: "off"
+  jackson:
+    default-property-inclusion: non_null
+  # Outbound HTTP timeouts. Verify they apply to the RestClient used by Spring AI.
+  http:
+    client:
+      connect-timeout: 10s
+      read-timeout: 120s
+  # SPRING AI
   ai:
     chat:
       client:
@@ -16,40 +39,12 @@ spring:
       api-key: ${CHAT_KEY}
       base-url: ${CHAT_BASE_URL}
       chat:
-        model: ${CHAT_MODEL}
-        temperature: 0.2
-        max-completion-tokens: 2048
-      timeout: 120s
-    # SafeGuard Configuration
-    advisor:
-      safeguard:
-        blocked-words:
-          - env
+        options:
+          model: ${CHAT_MODEL}
+          temperature: 0.2
+          max-completion-tokens: 2048
+# APPLICATION
 praya:
-  cors:
-    path-pattern: "/api/**"
-    allowed-origins:
-      - ${PORTFOLIO_URL:https://pranitbhangale.vercel.app}
-      - ${UI_URL:http://localhost:3000}
-      - "http://localhost:3000"
-      - "http://localhost:5173"
-      - "http://127.0.0.1:3000"
-      - "http://127.0.0.1:5173"
-      - "https://pranitbhangale.vercel.app"
-    allowed-methods:
-      - "GET"
-      - "POST"
-      - "PUT"
-      - "DELETE"
-      - "OPTIONS"
-    allowed-headers: "*"
-    exposed-headers:
-      - "Content-Type"
-      - "Cache-Control"
-      - "Connection"
-      - "X-API-Version"
-    allow-credentials: true
-    max-age: 3600
   portfolio:
     url: ${PORTFOLIO_URL}
   github:
@@ -57,14 +52,38 @@ praya:
     api-url: ${GITHUB_API_URL}
   linkedin:
     url: ${LINKEDIN_URL}
+  cors:
+    path-pattern: "/api/**"
+    allowed-origins: ${CORS_ALLOWED_ORIGINS}
+    allowed-methods:
+      - GET
+      - POST
+      - OPTIONS
+    allowed-headers:
+      - Content-Type
+      - Authorization
+      - Accept
+      - X-Requested-With
+    exposed-headers:
+      - Content-Type
+      - Cache-Control
+      - Connection
+      - X-API-Version
+    allow-credentials: true
+    max-age: 3600
+  # Throttling
   rate-limiter:
-    api-delay-ms: ${API_DELAY_MS:50}
+    api-delay-ms: 50
   ratelimit:
     enabled: true
+  # AI GUARDRAILS
   ai:
     guardrail:
       enabled: true
       strict-mode: true
+      max-input-length: 1000
+      input-violation-message: "Input security validation failed: Request violates safety policies."
+      output-violation-message: "Output security validation failed: Response withheld due to safety policies."
       blocked-words:
         - .env file
         - printenv
@@ -73,51 +92,124 @@ praya:
         - ignore previous instructions
         - bypass restrictions
       input-patterns:
-        - "(?i).*ignore\\s+(all\\s+)?previous\\s+(instructions|prompts|rules).*"
-        - "(?i).*disregard\\s+all\\s+(prior|previous)\\s+(instructions|rules).*"
-        - "(?i).*you\\s+are\\s+now\\s+in\\s+(dan|developer|jailbreak|unrestricted)\\s+mode.*"
-        - "(?i).*(reveal|show|tell|print|dump|output|repeat|display).*(system\\s+prompt|developer\\s+instructions?|system\\s+rules?|internal\\s+instructions?|system\\s+directive|hidden\\s+rules?).*"
-        - "(?i).*what\\s+are\\s+your\\s+(rules|instructions|prompts|guidelines|constraints|directives).*"
-        - "(?i).*repeat\\s+(everything|the\\s+text)\\s+(above|prior).*"
+        # Prompt injection / jailbreak
+        - "ignore\\s+(all\\s+)?(the\\s+)?previous\\s+(instructions|prompts|rules)"
+        - "disregard\\s+(all\\s+)?(prior|previous)\\s+(instructions|rules)"
+        - "you\\s+are\\s+now\\s+in\\s+(dan|developer|jailbreak|unrestricted)\\s+mode"
+        - "(pretend|act|behave)\\s+(to\\s+be|as|like)\\s+(an?\\s+)?(unrestricted|jailbroken|different|evil|admin)"
+        - "(decode|base64|rot13).{0,40}(and\\s+)?(follow|execute|run|obey)"
+        # System prompt / rules extraction
+        - "(reveal|show|tell|print|dump|output|repeat|display|leak).{0,30}(system\\s+prompt|developer\\s+instructions?|system\\s+rules?|internal\\s+instructions?|system\\s+directive|hidden\\s+rules?)"
+        - "what\\s+(are|is)\\s+your\\s+(rules|instructions|prompts?|guidelines|constraints|directives)"
+        - "repeat\\s+(everything|the\\s+text)\\s+(above|prior)"
+        # Secrets / infrastructure probing
+        - "(show|give|tell|print|share|what).{0,30}(api\\s*key|password|secret|access\\s+token|credentials?|connection\\s+string|application\\.ya?ml|environment\\s+variables?)"
+        - "(list|show|what).{0,20}(tools|functions|plugins).{0,20}(you\\s+have|available|can\\s+call)"
       output-patterns:
-        - "(?i)(api[_-]?key|access[_-]?token|secret[_-]?key)\\s*[:=]\\s*['\"]?[a-zA-Z0-9_\\-]{16,}['\"]?"
-        - "ey[A-Za-z0-9_-]{10,}\\.ey[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}"
-        - "(?i).*jdbc:[a-zA-Z0-9]+://.*password=.*"
-        - "(?i).*(strict\\s+anti-hallucination|two-tier\\s+progressive\\s+tool\\s+catalog|progressive\\s+disclosure\\s+rules|system\\s+prompt\\s*:|internal\\s+rules\\s*:|tool\\s+calling\\s+chat\\s+options|under\\s+no\\s+circumstances\\s+should\\s+you\\s+reveal).*"
-      input-violation-message: "Input security validation failed: Request violates safety policies."
-      output-violation-message: "Output security validation failed: Response withheld due to safety policies."
+        - "(api[_-]?key|access[_-]?token|secret[_-]?key)\\s*[:=]\\s*['\"]?[a-zA-Z0-9_\\-]{16,}['\"]?"
+        - "\\bey[A-Za-z0-9_-]{10,}\\.ey[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}"
+        - "jdbc:[a-zA-Z0-9]+://\\S*password="
+        - "-----BEGIN\\s+(RSA\\s+|EC\\s+|OPENSSH\\s+)?PRIVATE\\s+KEY-----"
+        - "\\bAKIA[0-9A-Z]{16}\\b"
+        - "\\bsk-[A-Za-z0-9_-]{20,}"
+        - "\\b(10\\.\\d{1,3}|192\\.168|172\\.(1[6-9]|2\\d|3[01]))\\.\\d{1,3}\\.\\d{1,3}\\b"
+        - "(strict\\s+anti-hallucination|two-tier\\s+progressive\\s+tool\\s+catalog|progressive\\s+disclosure\\s+rules|system\\s+prompt\\s*:|internal\\s+rules\\s*:|tool\\s+calling\\s+chat\\s+options|under\\s+no\\s+circumstances\\s+should\\s+you\\s+reveal)"
+      scope:
+        enabled: true
+        require-topic-keyword: true
+        follow-up-max-words: 6
+        message: "I can help with questions about my career, skills, projects, blogs, certifications and how to contact me."
+        allowed-topics:
+          - career
+          - experience
+          - work
+          - job
+          - role
+          - skill
+          - tech stack
+          - technolog
+          - project
+          - blog
+          - article
+          - certif
+          - course
+          - education
+          - degree
+          - resume
+          - cv
+          - contact
+          - email
+          - linkedin
+          - github
+          - portfolio
+          - hire
+          - hiring
+          - available
+          - java
+          - spring
+          - react
+          - docker
+          - kubernetes
+          - aws
+          - sql
+          - microservice
+          - llm
+          - genai
+        smalltalk-patterns:
+          - "^(hi+|hello|hey|namaste|good\\s+(morning|afternoon|evening))\\b[\\s!.,?]*$"
+          - "^(thanks|thank\\s+you|ok|okay|great|cool|nice|bye|goodbye)\\b[\\s!.,?]*$"
+          - "^(who|what)\\s+are\\s+you\\??$"
+          - "^what\\s+can\\s+you\\s+(do|help\\s+with)\\??$"
+        off-topic-patterns:
+          - "\\b(write|generate|compose|draft)\\b.{0,40}\\b(poem|story|essay|joke|song|homework|assignment|malware|exploit)\\b"
+          - "\\b(weather|stock\\s+price|bitcoin|lottery|horoscope|recipe|cricket\\s+score|election)\\b"
+          - "\\b(medical\\s+advice|diagnos\\w*|legal\\s+advice|prescription)\\b"
+          - "\\b(solve|calculate)\\b.{0,40}\\b(equation|integral|math\\w*)\\b"
+# LOGGING
+logging:
+  file:
+    name: ${LOG_PATH:logs/praya-agent.log}
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.pranit.praya: ${LOG_LEVEL:INFO}
+  logback:
+    rollingpolicy:
+      file-name-pattern: ${LOG_PATH:logs/praya-agent.log}.%d{yyyy-MM-dd}.%i.gz
+      max-file-size: 50MB
+      total-size-cap: 1GB
+      max-history: 30
+      clean-history-on-start: false
 # ACTUATOR AND HEALTH CHECKS
 management:
   endpoints:
     web:
       exposure:
-        include:
-          - health
-          - info
+        include: health,info
   endpoint:
     health:
+      show-details: never
+      show-components: never
       probes:
         enabled: true
-      readinessstate:
-        enabled: true
-      show-details: never
+      group:
+        liveness:
+          include: livenessState
+        readiness:
+          include: readinessState
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    build:
+      enabled: true
+    java:
+      enabled: true
 # APPLICATION INFORMATION
 info:
   app:
     name: Praya-Agent
-    description: "Praya AI Pranit Personal AI Assistant."
-    version: 1.0.0
-# LOGGING CONFIGURATION
-logging:
-  file:
-    name: ${LOG_PATH}
-  level:
-    root: ${LOG_LEVEL_ROOT}
-    com.pranit.praya: ${LOG_LEVEL}
-  logback:
-    rollingpolicy:
-      file-name-pattern: ${LOG_PATH}.%d{yyyy-MM-dd}.%i.log.gz
-      max-file-size: 50MB
-      total-size-cap: 1GB
-      max-history: 30
-      clean-history-on-start: false
+    description: "Praya AI - Pranit's Personal AI Assistant"
