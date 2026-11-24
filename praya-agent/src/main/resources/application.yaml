@@ -20,11 +20,6 @@ spring:
         temperature: 0.2
         max-completion-tokens: 2048
       timeout: 120s
-    # SafeGuard Configuration
-    advisor:
-      safeguard:
-        blocked-words:
-          - env
 praya:
   portfolio:
     url: ${PORTFOLIO_URL}
