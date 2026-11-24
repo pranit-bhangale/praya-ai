@@ -14,6 +14,7 @@ import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
 import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.core.Ordered;
@@ -41,7 +42,7 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
     @Override
     public @NonNull ChatClientResponse adviseCall(@NonNull ChatClientRequest request, CallAdvisorChain chain) {
         if (!this.properties.enabled()) return chain.nextCall(request);
-        final String input = request.prompt().getContents();
+        final String input = extractUserText(request);
         if (this.properties.strictMode()) {
             this.guardrailService.validateInput(input);
         } else {
@@ -63,6 +64,11 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
             }
         }
         return response;
+    }
+
+    private String extractUserText(ChatClientRequest request) {
+        UserMessage userMessage = request.prompt().getUserMessage();
+        return userMessage.getText() != null ? userMessage.getText() : "";
     }
 
     private ChatClientResponse createFallbackResponse(ChatClientRequest request, String message) {
@@ -87,7 +93,7 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
     @Override
     public @NonNull Flux<ChatClientResponse> adviseStream(@NonNull ChatClientRequest request, StreamAdvisorChain chain) {
         if (!this.properties.enabled()) return chain.nextStream(request);
-        final String input = request.prompt().getContents();
+        final String input = extractUserText(request);
         if (this.properties.strictMode()) {
             try {
                 this.guardrailService.validateInput(input);
