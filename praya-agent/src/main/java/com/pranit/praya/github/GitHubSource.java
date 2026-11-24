@@ -53,20 +53,19 @@ public class GitHubSource implements KnowledgeSource {
                 String htmlUrl = String.valueOf(profile.getOrDefault("html_url", "https://github.com/" + this.username));
                 String location = String.valueOf(profile.getOrDefault("location", ""));
                 String company = String.valueOf(profile.getOrDefault("company", ""));
-                List<KnowledgeItem> items = List.of(
-                        KnowledgeItem.builder()
-                                .id("github-live-profile")
-                                .source(DataSourceType.GITHUB)
-                                .category(ProfileConstant.CATEGORY_PROFILE)
-                                .title("Live GitHub Profile: " + name)
-                                .content(String.format(
-                                        "GitHub Profile: %s | Name: %s | Bio: %s | Public Repositories: %d | Followers: %d | Location: %s | Company: %s | Website: %s",
-                                        htmlUrl, name, bio.isBlank() ? "N/A" : bio, publicRepos, followers,
-                                        location.isBlank() ? "N/A" : location,
-                                        company.isBlank() ? "N/A" : company,
-                                        blog.isBlank() ? "N/A" : blog))
-                                .tags(List.of("github", "live", "profile", "stats", "repositories"))
-                                .build()
+                List<KnowledgeItem> items = List.of(KnowledgeItem.builder()
+                        .id("github-live-profile")
+                        .source(DataSourceType.GITHUB)
+                        .category(ProfileConstant.CATEGORY_PROFILE)
+                        .title("Live GitHub Profile: " + name)
+                        .content(String.format(
+                                "GitHub Profile: %s | Name: %s | Bio: %s | Public Repositories: %d | Followers: %d | Location: %s | Company: %s | Website: %s",
+                                htmlUrl, name, bio.isBlank() ? "N/A" : bio, publicRepos, followers,
+                                location.isBlank() ? "N/A" : location,
+                                company.isBlank() ? "N/A" : company,
+                                blog.isBlank() ? "N/A" : blog))
+                        .tags(List.of("github", "live", "profile", "stats", "repositories"))
+                        .build()
                 );
                 final long durationMs = System.currentTimeMillis() - startTime;
                 log.info("[DATA-SOURCE] [GITHUB-FETCH-SUCCESS] Retrieved live profile items: {}, publicRepos: {}, durationMs: {}",

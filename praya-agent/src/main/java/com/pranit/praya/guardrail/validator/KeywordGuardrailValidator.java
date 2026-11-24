@@ -10,6 +10,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.regex.Pattern;
 
 /**
@@ -27,11 +28,37 @@ public class KeywordGuardrailValidator implements GuardrailValidator {
                 ? properties.blockedWords()
                 .stream()
                 .filter(StringUtils::hasText)
-                .map(w -> Pattern.compile(
-                        "(?<![\\p{L}\\p{N}_])" + Pattern.quote(w.trim()) + "(?![\\p{L}\\p{N}_])",
-                        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE))
+                .map(KeywordGuardrailValidator::compilePattern)
+                .filter(Objects::nonNull)
                 .toList()
                 : List.of();
+    }
+
+    private static Pattern compilePattern(String rawWord) {
+        String trimmed = rawWord.trim();
+        if (trimmed.isEmpty()) return null;
+
+        String[] tokens = trimmed.split("\\s+");
+        StringBuilder sb = new StringBuilder();
+
+        char firstChar = tokens[0].charAt(0);
+        if (Character.isLetterOrDigit(firstChar) || firstChar == '_') {
+            sb.append("(?<![\\p{L}\\p{N}_])");
+        }
+
+        for (int i = 0; i < tokens.length; i++) {
+            if (i > 0) {
+                sb.append("\\s+");
+            }
+            sb.append(Pattern.quote(tokens[i]));
+        }
+
+        char lastChar = trimmed.charAt(trimmed.length() - 1);
+        if (Character.isLetterOrDigit(lastChar) || lastChar == '_') {
+            sb.append("(?![\\p{L}\\p{N}_])");
+        }
+
+        return Pattern.compile(sb.toString(), Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     }
 
     @Override

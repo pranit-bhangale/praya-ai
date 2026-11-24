@@ -1,6 +1,7 @@
 package com.pranit.praya.github;
 
 import com.pranit.praya.constant.ApiConstant;
+import com.pranit.praya.constant.GitHubConstant;
 import com.pranit.praya.ratelimit.RateLimiter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -37,7 +38,7 @@ public final class GitHubApiClientImpl implements GitHubApiClient {
     ) {
         this.restClientBuilder = restClientBuilder;
         this.rateLimiter = rateLimiter;
-        this.baseUrl = StringUtils.hasText(baseUrl) ? baseUrl : GitHubConstants.DEFAULT_API_BASE_URL;
+        this.baseUrl = StringUtils.hasText(baseUrl) ? baseUrl : GitHubConstant.DEFAULT_API_BASE_URL;
     }
 
     @Override
@@ -53,7 +54,7 @@ public final class GitHubApiClientImpl implements GitHubApiClient {
                             .path("/users/{username}/repos")
                             .queryParam("type", "public")
                             .queryParam("sort", "updated")
-                            .queryParam("per_page", GitHubConstants.MAX_PAGE_SIZE)
+                            .queryParam("per_page", GitHubConstant.MAX_PAGE_SIZE)
                             .queryParam("page", currentPage)
                             .build(username))
                     .retrieve()
@@ -61,7 +62,7 @@ public final class GitHubApiClientImpl implements GitHubApiClient {
 
             if (repositories == null || repositories.isEmpty()) break;
             allRepositories.addAll(repositories);
-            if (repositories.size() < GitHubConstants.MAX_PAGE_SIZE) break;
+            if (repositories.size() < GitHubConstant.MAX_PAGE_SIZE) break;
             page++;
         }
         return allRepositories;
@@ -81,8 +82,8 @@ public final class GitHubApiClientImpl implements GitHubApiClient {
         return restClientBuilder
                 .baseUrl(this.baseUrl)
                 .defaultHeader(HttpHeaders.ACCEPT, "application/vnd.github+json")
-                .defaultHeader(GitHubConstants.API_VERSION_HEADER, GitHubConstants.API_VERSION)
-                .defaultHeader(HttpHeaders.USER_AGENT, GitHubConstants.USER_AGENT)
+                .defaultHeader(GitHubConstant.API_VERSION_HEADER, GitHubConstant.API_VERSION)
+                .defaultHeader(HttpHeaders.USER_AGENT, GitHubConstant.USER_AGENT)
                 .build();
     }
 }

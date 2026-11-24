@@ -62,17 +62,8 @@ public class StrictGuardrailAdvisor implements CallAdvisor, StreamAdvisor, Order
         if (stage == Stage.INPUT) {
             GuardrailResult input = guardrailService.evaluate(extractUserText(request), ValidationPhase.INPUT);
             if (!input.valid()) return Flux.just(block(request, input, ValidationPhase.INPUT));
-            return chain.nextStream(request);
         }
-        return chain.nextStream(request)
-                .collectList()
-                .flatMapMany(chunks -> {
-                    String full = chunks.stream().map(this::extractResponseText).collect(Collectors.joining());
-                    GuardrailResult output = guardrailService.evaluate(full, ValidationPhase.OUTPUT);
-                    return output.valid()
-                            ? Flux.fromIterable(chunks)
-                            : Flux.just(block(request, output, ValidationPhase.OUTPUT));
-                });
+        return chain.nextStream(request);
     }
 
     private ChatClientResponse block(ChatClientRequest request, GuardrailResult result, ValidationPhase phase) {

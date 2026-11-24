@@ -8,18 +8,15 @@ import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 /**
  * INPUT-only topic scope check for a portfolio assistant.
- * <ol>
- *   <li>greetings / thanks always pass</li>
- *   <li>clearly off-topic requests are rejected</li>
- *   <li>optionally, longer messages must mention an allowed topic (career, skills, projects, ...)</li>
- * </ol>
- * This is a cost/UX guard, NOT a security boundary: a keyword can be stuffed into an off-topic message.
- * The real boundary is that the model only ever receives public data (see system-prompt.txt).
+ * Optimized with a unified single-pass regex for all allowed topics.
+ * Supports individual YAML items, grouped lines, or single comma-separated sentences.
  */
 @Component
 public class TopicScopeGuardrailValidator implements GuardrailValidator {
@@ -27,7 +24,7 @@ public class TopicScopeGuardrailValidator implements GuardrailValidator {
     private final GuardrailProperties properties;
     private final List<Pattern> smalltalk;
     private final List<Pattern> offTopic;
-    private final List<Pattern> allowedTopics;
+    private final Pattern unifiedAllowedTopicsPattern;
 
     public TopicScopeGuardrailValidator(GuardrailProperties properties) {
         this.properties = properties;
@@ -38,12 +35,35 @@ public class TopicScopeGuardrailValidator implements GuardrailValidator {
         this.offTopic = scope.offTopicPatterns().stream()
                 .filter(StringUtils::hasText).map(p ->
                         Pattern.compile(p, Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)).toList();
-        this.allowedTopics = scope.allowedTopics()
-                .stream()
+
+        List<String> rawTopics = scope.allowedTopics() != null ? scope.allowedTopics() : List.of();
+        List<String> flattenedTopics = rawTopics.stream()
                 .filter(StringUtils::hasText)
-                .map(t -> Pattern.compile("(?<![\\p{L}\\p{N}_])" + Pattern.quote(t.trim()),
-                        Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE))
+                .flatMap(entry -> Arrays.stream(entry.split("[,;]+")))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .distinct()
                 .toList();
+
+        if (!flattenedTopics.isEmpty()) {
+            String alternation = flattenedTopics.stream()
+                    .map(TopicScopeGuardrailValidator::compileTopicRegex)
+                    .collect(Collectors.joining("|"));
+            this.unifiedAllowedTopicsPattern = Pattern.compile("(?<![\\p{L}\\p{N}_])(" + alternation + ")",
+                    Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+        } else {
+            this.unifiedAllowedTopicsPattern = null;
+        }
+    }
+
+    private static String compileTopicRegex(String topic) {
+        String[] words = topic.trim().split("\\s+");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < words.length; i++) {
+            if (i > 0) sb.append("\\s+");
+            sb.append(Pattern.quote(words[i]));
+        }
+        return sb.toString();
     }
 
     @Override
@@ -62,7 +82,7 @@ public class TopicScopeGuardrailValidator implements GuardrailValidator {
             if (p.matcher(text).find()) return fail(phase, "OFF_TOPIC", p.pattern(), scope.message());
         }
         if (scope.requireTopicKeyword() && wordCount(text) > scope.followUpMaxWords()) {
-            boolean onTopic = allowedTopics.stream().anyMatch(p -> p.matcher(text).find());
+            boolean onTopic = this.unifiedAllowedTopicsPattern != null && this.unifiedAllowedTopicsPattern.matcher(text).find();
             if (!onTopic) return fail(phase, "NO_ALLOWED_TOPIC", "allowed-topics", scope.message());
         }
         return GuardrailResult.success(text);

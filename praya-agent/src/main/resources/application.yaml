@@ -6,7 +6,7 @@ server:
   max-http-request-header-size: 8KB
   compression:
     enabled: true
-    mime-types: application/json,text/plain,text/event-stream
+    mime-types: application/json,text/plain,text/html,text/xml,text/css,application/javascript
     min-response-size: 1KB
   error:
     include-message: never
@@ -64,6 +64,7 @@ praya:
       - Authorization
       - Accept
       - X-Requested-With
+      - X-API-Version
     exposed-headers:
       - Content-Type
       - Cache-Control
@@ -85,7 +86,10 @@ praya:
       input-violation-message: "Input security validation failed: Request violates safety policies."
       output-violation-message: "Output security validation failed: Response withheld due to safety policies."
       blocked-words:
+        - .env
         - .env file
+        - env file
+        - env
         - printenv
         - system prompt
         - drop table
@@ -103,7 +107,9 @@ praya:
         - "what\\s+(are|is)\\s+your\\s+(rules|instructions|prompts?|guidelines|constraints|directives)"
         - "repeat\\s+(everything|the\\s+text)\\s+(above|prior)"
         # Secrets / infrastructure probing
-        - "(show|give|tell|print|share|what).{0,30}(api\\s*key|password|secret|access\\s+token|credentials?|connection\\s+string|application\\.ya?ml|environment\\s+variables?)"
+        - "(provide|show|give|tell|print|share|what|reveal|leak|dump|cat|read|get|display|view|export|output).{0,30}(\\.env(\\b|[\\s._-]*(file|local|prod|dev))?|\\b(the\\s+)?env\\b([\\s._-]*(file|vars?|variables?))?|\\b(api[_-]?keys?|passwords?|secrets?|access[_-]?tokens?|credentials?|connection[_-]?strings?|application\\.ya?ml|environment[_-]?variables?))"
+        - "^\\s*(\\.?env|printenv|getenv|setenv)\\s*$"
+        - "(^|\\s)(cat|type|more|less|head|tail|vi|vim|nano)\\s+(\\S*\\/)?\\.env\\b"
         - "(list|show|what).{0,20}(tools|functions|plugins).{0,20}(you\\s+have|available|can\\s+call)"
       output-patterns:
         - "(api[_-]?key|access[_-]?token|secret[_-]?key)\\s*[:=]\\s*['\"]?[a-zA-Z0-9_\\-]{16,}['\"]?"
@@ -120,41 +126,10 @@ praya:
         follow-up-max-words: 6
         message: "I can help with questions about my career, skills, projects, blogs, certifications and how to contact me."
         allowed-topics:
-          - career
-          - experience
-          - work
-          - job
-          - role
-          - skill
-          - tech stack
-          - technolog
-          - project
-          - blog
-          - article
-          - certif
-          - course
-          - education
-          - degree
-          - resume
-          - cv
-          - contact
-          - email
-          - linkedin
-          - github
-          - portfolio
-          - hire
-          - hiring
-          - available
-          - java
-          - spring
-          - react
-          - docker
-          - kubernetes
-          - aws
-          - sql
-          - microservice
-          - llm
-          - genai
+          - "career, experience, work, job, role, resume, cv, hire, hiring, available"
+          - "skill, tech stack, technolog, java, spring, react, docker, kubernetes, aws, sql, microservice, llm, genai"
+          - "project, blog, article, certif, course, education, degree"
+          - "contact, email, linkedin, github, portfolio"
         smalltalk-patterns:
           - "^(hi+|hello|hey|namaste|good\\s+(morning|afternoon|evening))\\b[\\s!.,?]*$"
           - "^(thanks|thank\\s+you|ok|okay|great|cool|nice|bye|goodbye)\\b[\\s!.,?]*$"

@@ -46,8 +46,7 @@ com.pranit.praya
 │   └── GlobalExceptionHandler.java           # Global exception handler producing RFC 7807 ProblemDetails
 ├── github
 │   ├── GitHubApiClient.java                  # RestClient wrapper for GitHub REST API
-│   ├── GitHubSource.java                     # Live repository fetcher with curated fallback
-│   └── GitHubTools.java                      # AI tools for projects, skills, and repositories
+│   └── GitHubSource.java                     # Live repository fetcher with curated fallback
 ├── guardrail
 │   ├── advisor/StrictGuardrailAdvisor.java   # Ordered.HIGHEST_PRECEDENCE input/output advisor
 │   ├── exception/GuardrailViolationException.java
@@ -63,24 +62,32 @@ com.pranit.praya
 │       ├── GuardrailValidator.java           # SPI interface for validators
 │       ├── KeywordGuardrailValidator.java    # Substring / keyword scanner
 │       └── RegexPatternGuardrailValidator.java # Pre-compiled regex scanner
+├── jsoup
+│   ├── JsoupApiClient.java                   # Contract for rate-limited Jsoup scraping
+│   └── JsoupApiClientImpl.java               # Resilient Jsoup client implementation
 ├── linkedin
-│   ├── LinkedInSource.java                   # Live profile JSoup scraper with AuthWall detection
-│   └── LinkedInTools.java                    # AI tools for education, certs, posts, career
+│   └── LinkedInSource.java                   # Live profile scraper via JsoupApiClient
 ├── model
 │   ├── BlogArticle.java                      # Immutable model for published blog articles
 │   ├── CertificationRecord.java              # Immutable model for verified credentials
 │   ├── ChatRequest.java                      # Client request payload (prompt, conversationId)
 │   ├── DataSourceType.java                   # Enum: GITHUB, LINKEDIN, PORTFOLIO_WEBSITE
-│   ├── EducationSummary.java                 # Lightweight credential summary
 │   ├── GitHubRepoRecord.java                 # Public repository record
 │   ├── KnowledgeItem.java                    # Scraped knowledge record with tags
 │   ├── ProjectRecord.java                    # Full project architecture record
 │   ├── ProjectSummary.java                   # Lightweight project overview
-│   ├── SocialPostRecord.java                 # LinkedIn thought leadership post record
+│   ├── QualificationRecord.java              # Immutable record for academic degrees/qualifications
 │   └── ToolResponse.java                     # Standardized envelope for tool outputs
+├── parser
+│   └── ResponseSerializer.java               # Standardized JSON serializer for tool envelopes
 ├── portfolio
-│   ├── PortfolioTools.java                   # AI tools for bio, deep narrative, blog articles
 │   └── PortfolioWebsiteSource.java           # Live JSoup scraper for personal portfolio site
+├── tool
+│   ├── ProfileTool.java                      # AI tools for bio, contact details, and qualifications
+│   ├── SkillsTool.java                       # AI tools for core and categorized technical skills
+│   ├── CertificationTool.java                # AI tools for verified certifications (name, issuer)
+│   ├── BlogsTool.java                        # AI tools for technical blog articles and publications
+│   └── ProjectTool.java                      # AI tools for projects and public repositories
 ├── ratelimit
 │   ├── annotation
 │   │   ├── RateLimit.java                    # Declarative rate limit rule annotation
@@ -97,10 +104,7 @@ com.pranit.praya
 │       ├── RateLimitMetrics.java             # Micrometer counters and timers
 │       ├── RateLimiter.java                  # High-level limiter contract
 │       └── RateLimitService.java             # Key-based bucket registry
-├── repository
-│   └── KnowledgeRepository.java              # Central in-memory collection store
 └── source
-    ├── KnowledgeAggregator.java              # Composite collector aggregating all sources
     └── KnowledgeSource.java                  # Strategy interface for data providers
 ```
 
@@ -217,38 +221,42 @@ classDiagram
 
 ---
 
-### 2.3 Two-Tier Tool System & Data Sources
+### 2.3 Domain-Centric Tool System & Data Sources
 
 ```mermaid
 classDiagram
-    class GitHubTools {
+    class ProfileTool {
+        -responseSerializer: ResponseSerializer
+        +getAboutMe() String
+        +getContactDetails() String
+        +getQualifications() String
+    }
+
+    class SkillsTool {
         -gitHubSource: GitHubSource
-        -objectMapper: ObjectMapper
-        +listProjectSummaries() String
-        +getProjectDetails(projectName: String) String
+        -responseSerializer: ResponseSerializer
         +getSkillsSummary() String
-        +getSkillsDeepDive() String
-        +fetchGitHubRepositories() String
+        +getSkillsCategorized() String
     }
 
-    class LinkedInTools {
+    class CertificationTool {
         -linkedInSource: LinkedInSource
-        -objectMapper: ObjectMapper
-        +listEducationSummary() String
-        +getEducationDetails(credentialName: String) String
-        +fetchCertifications() String
-        +fetchLinkedInPosts() String
-        +fetchLinkedInProfile() String
-        +getCareerOverview() String
-        +getArchitecturePhilosophy() String
+        -responseSerializer: ResponseSerializer
+        +getCertifications() String
     }
 
-    class PortfolioTools {
+    class BlogsTool {
         -portfolioWebsiteSource: PortfolioWebsiteSource
-        -objectMapper: ObjectMapper
-        +getPortfolioSummary() String
-        +getPortfolioDeepDive() String
-        +fetchBlogArticles() String
+        -responseSerializer: ResponseSerializer
+        +getBlogArticles() String
+    }
+
+    class ProjectTool {
+        -gitHubSource: GitHubSource
+        -responseSerializer: ResponseSerializer
+        +listProjects() String
+        +getProjectDetails(projectName: String) String
+        +getPublicRepositories() String
     }
 
     class KnowledgeSource {
@@ -266,22 +274,31 @@ classDiagram
     }
 
     class LinkedInSource {
-        -rateLimiter: RateLimiter
+        -jsoupApiClient: JsoupApiClient
         -profileUrl: String
         +fetchKnowledge() List~KnowledgeItem~
         +fetchProjects() List~ProjectRecord~
     }
 
     class PortfolioWebsiteSource {
-        -rateLimiter: RateLimiter
+        -jsoupApiClient: JsoupApiClient
         -portfolioUrl: String
         +fetchKnowledge() List~KnowledgeItem~
         +fetchProjects() List~ProjectRecord~
     }
 
-    GitHubTools --> GitHubSource
-    LinkedInTools --> LinkedInSource
-    PortfolioTools --> PortfolioWebsiteSource
+    class JsoupApiClient {
+        <<interface>>
+        +fetchDocument(url: String) Optional~Document~
+        +fetchDocument(url: String, rateLimitKey: String) Optional~Document~
+    }
+
+    ProjectTool --> GitHubSource
+    SkillsTool --> GitHubSource
+    CertificationTool --> LinkedInSource
+    BlogsTool --> PortfolioWebsiteSource
+    LinkedInSource --> JsoupApiClient
+    PortfolioWebsiteSource --> JsoupApiClient
     KnowledgeSource <|.. GitHubSource
     KnowledgeSource <|.. LinkedInSource
     KnowledgeSource <|.. PortfolioWebsiteSource
@@ -382,23 +399,18 @@ data: ""
 
 ### 4.2 Comprehensive Tool Contracts
 
-| Tool Method                           | Bean Class       |     Tier      | Multi-Line Description & Parameters                                                                                                                                     |
-|:--------------------------------------|:-----------------|:-------------:|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `listProjectSummaries()`              | `GitHubTools`    |  **Tier 1**   | Concise catalog of software projects. Returns lightweight `ProjectSummary` (id, name, summary, primaryTech).                                                            |
-| `getProjectDetails(projectName)`      | `GitHubTools`    |  **Tier 2**   | Exhaustive architecture, tech stack, and highlights for target project. Accepts canonical aliases: `'open-connect'`, `'habit-tracker'`, `'todo-app'`, `'cleaning-bot'`. |
-| `getSkillsSummary()`                  | `GitHubTools`    |  **Tier 1**   | High-level core languages (Java, Python, TypeScript) and primary frameworks.                                                                                            |
-| `getSkillsDeepDive()`                 | `GitHubTools`    |  **Tier 2**   | Exhaustive breakdown across Languages, Backend, DBs, Cloud/DevOps, Architecture.                                                                                        |
-| `fetchGitHubRepositories()`           | `GitHubTools`    | **Dedicated** | Returns public repositories with star counts, fork counts, primary language, and source links.                                                                          |
-| `listEducationSummary()`              | `LinkedInTools`  |  **Tier 1**   | High-level academic credentials (PG-DAC CDAC, BE Electronics SPPU).                                                                                                     |
-| `getEducationDetails(credentialName)` | `LinkedInTools`  |  **Tier 2**   | Comprehensive syllabus and coursework. Parameters: `'pg-dac'`, `'cdac'`, `'be'`, `'sppu'`.                                                                              |
-| `fetchCertifications()`               | `LinkedInTools`  | **Dedicated** | Verified certifications, diplomas, and accreditation records.                                                                                                           |
-| `fetchLinkedInPosts()`                | `LinkedInTools`  | **Dedicated** | Engineering posts, WebSocket resiliency write-ups, and clean architecture thought leadership.                                                                           |
-| `fetchLinkedInProfile()`              | `LinkedInTools`  | **Dedicated** | Verified headline, connection URL, and professional identity.                                                                                                           |
-| `getCareerOverview()`                 | `LinkedInTools`  |  **Tier 1**   | Systems engineer identity, role overview, and core backend competencies.                                                                                                |
-| `getArchitecturePhilosophy()`         | `LinkedInTools`  |  **Tier 2**   | Clean Architecture, SOLID, TDD, and Reactive Streams engineering standards.                                                                                             |
-| `getPortfolioSummary()`               | `PortfolioTools` |  **Tier 1**   | Bio tagline and verified official profile URLs.                                                                                                                         |
-| `getPortfolioDeepDive()`              | `PortfolioTools` |  **Tier 2**   | Comprehensive about-me narrative journey and scraped portfolio text.                                                                                                    |
-| `fetchBlogArticles()`                 | `PortfolioTools` | **Dedicated** | Technical blog articles, architectural deep dives, and estimated reading times.                                                                                         |
+| Tool Method                      | Tool Name             | Bean Class          |     Domain      | Description & Parameters                                                                                                                  |
+|:---------------------------------|:----------------------|:--------------------|:---------------:|:------------------------------------------------------------------------------------------------------------------------------------------|
+| `getAboutMe()`                   | `about-me`            | `ProfileTool`       | **Profile**     | Verified professional bio, engineering background, and core focus as a systems and backend engineer.                                      |
+| `getContactDetails()`            | `contact-details`     | `ProfileTool`       | **Profile**     | Verified direct contact information (Email, LinkedIn, portfolio link, GitHub profile, communication preferences).                         |
+| `getQualifications()`            | `qualifications`      | `ProfileTool`       | **Profile**     | Verified academic qualifications and degrees (PG-DAC from IET CDAC, BE in E&TC from SPPU Pune University, HSC, SSC, institutions, years).|
+| `getSkillsSummary()`             | `skills-summary`      | `SkillsTool`        | **Skills**      | Concise summary of primary languages (Java, Python, TypeScript, SQL), core backend frameworks, and foundational tech stack.               |
+| `getSkillsCategorized()`         | `skills-categorized`  | `SkillsTool`        | **Skills**      | Exhaustive categorized breakdown across Languages, Backend & Distributed Systems, DBs, Cloud/DevOps, Architecture.                        |
+| `getCertifications()`            | `certifications`      | `CertificationTool` | **Credentials** | Verified professional certifications and diplomas with name, issuing authority / issuer, credential ID, and verification link.             |
+| `getBlogArticles()`              | `blog-articles`       | `BlogsTool`         | **Articles**    | Published technical blog articles, architecture case studies, and engineering write-ups.                                                  |
+| `listProjects()`                 | `projects-summary`    | `ProjectTool`       | **Projects**    | Concise catalog of software projects. Returns lightweight `ProjectSummary` (id, name, summary, primaryTech).                             |
+| `getProjectDetails(projectName)` | `project-detail`      | `ProjectTool`       | **Projects**    | Exhaustive architecture, tech stack, and highlights for target project (e.g. `'open-connect'`, `'todo-app'`, `'praya-ai'`).               |
+| `getPublicRepositories()`        | `public-repositories` | `ProjectTool`       | **Projects**    | Public GitHub repositories with descriptions, primary language, and source code links.                                                    |
 
 ---
 

@@ -7,7 +7,7 @@ import com.pranit.praya.model.ProjectRecord;
 import java.util.List;
 
 /**
- * Strategy contract for all knowledge and project data sources.
+ * Strategy contract for knowledge data sources.
  */
 public interface KnowledgeSource {
 
@@ -15,7 +15,9 @@ public interface KnowledgeSource {
 
     List<KnowledgeItem> fetchKnowledge();
 
-    List<ProjectRecord> fetchProjects();
+    default List<ProjectRecord> fetchProjects() {
+        return List.of();
+    }
 
     default boolean isAvailable() {
         return true;

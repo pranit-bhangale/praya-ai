@@ -32,7 +32,13 @@ const Renderer = (function() {
     function clearMessages() {
         if (messagesContainer) {
             const messages = messagesContainer.querySelectorAll('.message');
-            messages.forEach(msg => msg.remove());
+            messages.forEach(msg => {
+                const toolCalls = msg.querySelectorAll('.tool-call');
+                toolCalls.forEach(tc => {
+                    if (tc._timer) clearInterval(tc._timer);
+                });
+                msg.remove();
+            });
         }
         currentAssistantMessage = null;
         currentToolCalls.clear();
@@ -55,10 +61,6 @@ const Renderer = (function() {
         currentAssistantMessage = createMessageElement('assistant', '', true);
         currentAssistantMessage.classList.add('streaming');
         appendMessage(currentAssistantMessage);
-        
-        const toolCallsContainer = document.createElement('div');
-        toolCallsContainer.className = 'tool-calls-container';
-        currentAssistantMessage.querySelector('.message-content').appendChild(toolCallsContainer);
         
         currentToolCalls.clear();
         scrollToBottom();
@@ -110,24 +112,35 @@ const Renderer = (function() {
         const toolCallEl = currentToolCalls.get(toolCallEvent.id);
         if (!toolCallEl) return;
         
+        if (toolCallEl._timer) {
+            clearInterval(toolCallEl._timer);
+            toolCallEl._timer = null;
+        }
+        
+        const sec = toolCallEl._startTime ? ((Date.now() - toolCallEl._startTime) / 1000).toFixed(1) + 's' : '';
+        toolCallEl._event = toolCallEvent;
+        
         toolCallEl.classList.remove('started');
         toolCallEl.classList.add('completed');
         
-        const statusBadge = toolCallEl.querySelector('.status-badge');
-        if (statusBadge) {
-            statusBadge.className = 'status-badge completed';
-            statusBadge.innerHTML = '<span class="status-dot"></span>Completed';
-        }
+        toolCallEl.innerHTML = `
+            <div class="tool-call-pill">
+                <span class="tool-call-check">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                </span>
+                <span class="tool-call-label">Used tool <strong>${escapeHtml(toolCallEvent.name)}</strong></span>
+                ${sec ? `<span class="tool-call-duration">${sec}</span>` : ''}
+                <span class="tool-call-chevron">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                </span>
+            </div>
+        `;
         
-        const icon = toolCallEl.querySelector('.tool-call-icon svg');
-        if (icon) {
-            icon.innerHTML = '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>';
-        }
-        
-        if (toolCallEvent.responseData) {
-            addToolCallResponse(toolCallEl, toolCallEvent.responseData);
-        }
-        
+        toolCallEl.onclick = () => ToolCalling.openToolDetailModal(toolCallEvent);
         scrollToBottom();
     }
 
@@ -135,18 +148,33 @@ const Renderer = (function() {
         const toolCallEl = currentToolCalls.get(toolCallEvent.id);
         if (!toolCallEl) return;
         
+        if (toolCallEl._timer) {
+            clearInterval(toolCallEl._timer);
+            toolCallEl._timer = null;
+        }
+        
+        toolCallEl._event = toolCallEvent;
         toolCallEl.classList.remove('started');
-        toolCallEl.classList.add('completed');
+        toolCallEl.classList.add('error');
         
-        const statusBadge = toolCallEl.querySelector('.status-badge');
-        if (statusBadge) {
-            statusBadge.className = 'status-badge error';
-            statusBadge.innerHTML = '<span class="status-dot"></span>Error';
-        }
+        toolCallEl.innerHTML = `
+            <div class="tool-call-pill error">
+                <span class="tool-call-error-icon">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                </span>
+                <span class="tool-call-label">Tool error: <strong>${escapeHtml(toolCallEvent.name)}</strong></span>
+                <span class="tool-call-chevron">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                </span>
+            </div>
+        `;
         
-        if (toolCallEvent.responseData) {
-            addToolCallResponse(toolCallEl, toolCallEvent.responseData, true);
-        }
+        toolCallEl.onclick = () => ToolCalling.openToolDetailModal(toolCallEvent);
+        scrollToBottom();
     }
 
     function renderErrorMessage(error) {
@@ -204,6 +232,11 @@ const Renderer = (function() {
         }
         
         contentEl.appendChild(header);
+        if (role === 'assistant') {
+            const toolCallsContainer = document.createElement('div');
+            toolCallsContainer.className = 'tool-calls-container';
+            contentEl.appendChild(toolCallsContainer);
+        }
         contentEl.appendChild(body);
         
         if (role === 'user') {
@@ -234,87 +267,35 @@ const Renderer = (function() {
         const toolCallEl = document.createElement('div');
         toolCallEl.className = 'tool-call started';
         toolCallEl.dataset.toolId = toolCallEvent.id;
+        toolCallEl._startTime = Date.now();
+        toolCallEl._event = toolCallEvent;
         
-        const header = document.createElement('div');
-        header.className = 'tool-call-header';
-        
-        const toggle = document.createElement('button');
-        toggle.className = 'tool-call-toggle';
-        toggle.setAttribute('aria-label', 'Expand tool details');
-        toggle.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
-        
-        const icon = document.createElement('div');
-        icon.className = 'tool-call-icon';
-        icon.innerHTML = getToolIcon(toolCallEvent.name);
-        
-        const info = document.createElement('div');
-        info.className = 'tool-call-info';
-        info.innerHTML = `
-            <div class="tool-call-name">${escapeHtml(toolCallEvent.name)}</div>
-            <div class="tool-call-status">
-                <span class="status-badge started"><span class="status-dot"></span>Running</span>
-                <span class="tool-call-timestamp">${formatTime(new Date())}</span>
+        toolCallEl.innerHTML = `
+            <div class="tool-call-pill">
+                <span class="tool-call-spinner"></span>
+                <span class="tool-call-label">Calling tool <strong>${escapeHtml(toolCallEvent.name)}</strong>...</span>
+                <span class="tool-call-duration">0s</span>
+                <span class="tool-call-chevron">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <polyline points="9 18 15 12 9 6"/>
+                    </svg>
+                </span>
             </div>
         `;
         
-        const actions = document.createElement('div');
-        actions.className = 'tool-call-actions';
-        actions.innerHTML = `
-            <button class="tool-call-action-btn expand-btn" aria-label="View full details" title="View full details">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-            </button>
-        `;
-        
-        header.appendChild(toggle);
-        header.appendChild(icon);
-        header.appendChild(info);
-        header.appendChild(actions);
-        
-        const body = document.createElement('div');
-        body.className = 'tool-call-body';
-        
-        toolCallEl.appendChild(header);
-        toolCallEl.appendChild(body);
-        
-        header.addEventListener('click', (e) => {
-            if (!e.target.closest('.tool-call-action-btn') && !e.target.closest('.tool-call-toggle')) {
-                toggleToolCall(toolCallEl);
+        toolCallEl._timer = setInterval(() => {
+            const durationEl = toolCallEl.querySelector('.tool-call-duration');
+            if (durationEl && toolCallEl._startTime) {
+                const sec = Math.floor((Date.now() - toolCallEl._startTime) / 1000);
+                durationEl.textContent = sec < 60 ? `${sec}s` : `${Math.floor(sec / 60)}m ${sec % 60}s`;
             }
-        });
+        }, 1000);
         
-        toggle.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleToolCall(toolCallEl);
-        });
-        
-        actions.querySelector('.expand-btn').addEventListener('click', (e) => {
-            e.stopPropagation();
-            ToolCalling.openToolDetailModal(toolCallEvent);
+        toolCallEl.addEventListener('click', () => {
+            ToolCalling.openToolDetailModal(toolCallEl._event || toolCallEvent);
         });
         
         return toolCallEl;
-    }
-
-    function addToolCallResponse(toolCallEl, responseData, isError = false) {
-        const body = toolCallEl.querySelector('.tool-call-body');
-        if (!body) return;
-        
-        const responseSection = document.createElement('div');
-        responseSection.className = 'tool-call-response';
-        responseSection.innerHTML = `
-            <div class="tool-call-section-label">Response</div>
-            <pre class="tool-call-json"><code>${escapeHtml(formatJson(responseData))}</code></pre>
-        `;
-        
-        body.appendChild(responseSection);
-    }
-
-    function toggleToolCall(toolCallEl) {
-        const isMinimized = toolCallEl.classList.toggle('minimized');
-        const toggleBtn = toolCallEl.querySelector('.tool-call-toggle');
-        if (toggleBtn) {
-            toggleBtn.setAttribute('aria-label', isMinimized ? 'Expand tool details' : 'Collapse tool details');
-        }
     }
 
     function appendMessage(messageEl) {

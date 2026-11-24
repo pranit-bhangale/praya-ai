@@ -14,7 +14,7 @@ public class ChatEventStream {
 
     private final ObjectMapper json;
     private final Sinks.Many<ServerSentEvent<String>> toolEvents =
-            Sinks.many().unicast().onBackpressureBuffer();
+            Sinks.many().multicast().onBackpressureBuffer();
     private final ToolCallObservingAdvisor observer;
 
     public ChatEventStream(ObjectMapper json) {

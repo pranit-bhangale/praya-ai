@@ -60,17 +60,18 @@ flowchart TD
         OpenAiClient["OpenAI Chat Model (GPT-4o / GPT-4o-mini / Gemini API)"]
     end
 
-    subgraph ToolingCatalog["Two-Tier Progressive Tool Layer"]
-        GitHubTools["GitHubTools (Projects, Skills, Repos)"]
-        LinkedInTools["LinkedInTools (Education, Certs, Posts, Career)"]
-        PortfolioTools["PortfolioTools (About, Narrative, Blog)"]
+    subgraph ToolingCatalog["Domain-Centric AI Tools"]
+        ProfileTool["ProfileTool (About Me, Contact, Qualifications)"]
+        SkillsTool["SkillsTool (Core & Categorized Technical Skills)"]
+        CertificationTool["CertificationTool (Certifications: Name & Issuer)"]
+        BlogsTool["BlogsTool (Technical Articles & Publications)"]
+        ProjectTool["ProjectTool (Projects, Specs & GitHub Repos)"]
     end
 
     subgraph DataIngestionLayer["Data Ingestion & Resilient Sources"]
-        GitHubSource["GitHubSource (GitHubApiClient + Baseline)"]
-        LinkedInSource["LinkedInSource (JSoup Scraper + AuthWall Fallback)"]
-        PortfolioSource["PortfolioWebsiteSource (JSoup HTML Extractor)"]
-        KnowledgeRepo["KnowledgeRepository (Thread-Safe Store)"]
+        GitHubSource["GitHubSource (GitHubApiClient)"]
+        LinkedInSource["LinkedInSource (JsoupApiClient + AuthWall Detector)"]
+        PortfolioSource["PortfolioWebsiteSource (JsoupApiClient Extractor)"]
     end
 
     UserBrowser -->|HTTP POST /api/agent/chat| PortfolioFrontend
@@ -90,10 +91,9 @@ flowchart TD
     OpenAiClient -->|Tool Call Decision| ToolCallingAdvisor
     ToolCallingAdvisor -->|Invoke Tool Callback| ToolingCatalog
     ToolObservingAdvisor -.->|Emit TOOL_STARTED / COMPLETED| ChatEventStream
-    GitHubTools --> GitHubSource
-    LinkedInTools --> LinkedInSource
-    PortfolioTools --> PortfolioSource
-    GitHubSource & LinkedInSource & PortfolioSource --> KnowledgeRepo
+    ProjectTool & SkillsTool --> GitHubSource
+    CertificationTool --> LinkedInSource
+    BlogsTool --> PortfolioSource
     OpenAiClient -->|Synthesized Output Tokens| StrictGuardrail
     StrictGuardrail -->|Post - Generation Output Guardrail| PrayaAiService
     PrayaAiService -->|Stream SSE Tokens| PortfolioFrontend
@@ -148,7 +148,7 @@ sequenceDiagram
     participant Advisor as StrictGuardrailAdvisor
     participant SpringAI as Spring AI ChatClient
     participant LLM as OpenAI / LLM Model
-    participant Tools as GitHub / LinkedIn / Portfolio Tools
+    participant Tools as Domain-Centric Tools (Profile, Skills, Certs, Blogs, Projects)
     participant SSE as ChatEventStream
     User ->> Controller: POST /api/agent/chat { prompt, conversationId }
     Note over Controller: AOP @RateLimits Checks IP & Conversation

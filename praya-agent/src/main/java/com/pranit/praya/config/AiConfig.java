@@ -1,14 +1,16 @@
 package com.pranit.praya.config;
 
 import com.pranit.praya.constant.AiConstant;
-import com.pranit.praya.github.GitHubTools;
 import com.pranit.praya.guardrail.advisor.StrictGuardrailAdvisor;
 import com.pranit.praya.guardrail.advisor.StrictGuardrailAdvisor.Stage;
 import com.pranit.praya.guardrail.properties.GuardrailProperties;
 import com.pranit.praya.guardrail.service.GuardrailService;
-import com.pranit.praya.linkedin.LinkedInTools;
-import com.pranit.praya.portfolio.PortfolioTools;
 import com.pranit.praya.properties.CorsProperties;
+import com.pranit.praya.tool.BlogsTool;
+import com.pranit.praya.tool.CertificationTool;
+import com.pranit.praya.tool.ProfileTool;
+import com.pranit.praya.tool.ProjectTool;
+import com.pranit.praya.tool.SkillsTool;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
@@ -23,7 +25,7 @@ import org.springframework.core.Ordered;
 
 /**
  * Spring AI configuration registering strict input/output guardrails, conversation memory,
- * and the pre-configured {@link ChatClient} bean.
+ * and the pre-configured {@link ChatClient} bean with domain-centric tools.
  */
 @Slf4j
 @Configuration
@@ -87,13 +89,15 @@ public class AiConfig {
             StrictGuardrailAdvisor inputGuardrailAdvisor,
             StrictGuardrailAdvisor outputGuardrailAdvisor,
             MessageChatMemoryAdvisor memoryAdvisor,
-            GitHubTools gitHubTools,
-            LinkedInTools linkedInTools,
-            PortfolioTools portfolioTools
+            ProfileTool profileTool,
+            SkillsTool skillsTool,
+            CertificationTool certificationTool,
+            BlogsTool blogsTool,
+            ProjectTool projectTool
     ) {
         return builder
                 .defaultSystem(AiConstant.SYSTEM_PROMPT)
-                .defaultTools(gitHubTools, linkedInTools, portfolioTools)
+                .defaultTools(profileTool, skillsTool, certificationTool, blogsTool, projectTool)
                 .defaultAdvisors(inputGuardrailAdvisor, memoryAdvisor, outputGuardrailAdvisor)
                 .build();
     }

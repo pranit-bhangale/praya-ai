@@ -1,13 +1,12 @@
-package com.pranit.praya.github;
+package com.pranit.praya.constant;
 
-import com.pranit.praya.constant.ApiConstant;
 import lombok.experimental.UtilityClass;
 
 /**
  * Constants for the GitHub integration module.
  */
 @UtilityClass
-public class GitHubConstants {
+public class GitHubConstant {
 
     public static final String DEFAULT_API_BASE_URL = ApiConstant.GITHUB_DEFAULT_BASE_URL;
     public static final String API_VERSION_HEADER = ApiConstant.GITHUB_API_VERSION_HEADER;
