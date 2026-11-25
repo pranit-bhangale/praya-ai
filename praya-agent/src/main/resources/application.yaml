@@ -86,15 +86,14 @@ praya:
       input-violation-message: "Input security validation failed: Request violates safety policies."
       output-violation-message: "Output security validation failed: Response withheld due to safety policies."
       blocked-words:
-        - .env
         - .env file
-        - env file
-        - env
         - printenv
         - system prompt
         - drop table
         - ignore previous instructions
         - bypass restrictions
+        - credentials
+        - keys
       input-patterns:
         # Prompt injection / jailbreak
         - "ignore\\s+(all\\s+)?(the\\s+)?previous\\s+(instructions|prompts|rules)"
