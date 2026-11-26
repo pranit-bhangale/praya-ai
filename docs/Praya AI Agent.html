@@ -1,0 +1,1079 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,viewport-fit=cover"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        box-sizing: border-box;
+        padding-top: env(safe-area-inset-top, 0px);
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      html {
+        scroll-padding-top: env(safe-area-inset-top, 0px);
+      }
+      body {
+        margin: 0;
+        padding: 0;
+        font:
+          14px -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+        background: #fff;
+        color: #000;
+      }
+      img {
+        max-width: 100%;
+      }
+      [hidden]:not([hidden="until-found" i]) {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <title>Praya AI Agent</title>
+    <meta name="claude:viewport-fit-sides" content="cover" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&family=IBM+Plex+Mono:wght@400&display=swap"
+    />
+    <style>
+      /* Layout: one left-to-right swimlane diagram, request flows in order, tokens stream back along the bottom. */
+      :root {
+        --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+        --font-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+        --bg: #f6f8fa;
+        --fg: #16212b;
+        --muted: #5b6b79;
+        --node: #ffffff;
+        --line: #d3dae1;
+
+        --req: #2563eb;
+        --tool: #0d9488;
+        --res: #16a34a;
+        --evt: #d97706;
+
+        --client-f: #e9f0fe;
+        --client-s: #a9c1f5;
+        --client-t: #1d4ed8;
+        --edge-f: #fff3dc;
+        --edge-s: #e8c26a;
+        --edge-t: #a15c07;
+        --svc-f: #e4f6ec;
+        --svc-s: #86cfa7;
+        --svc-t: #0f7a4a;
+        --adv-f: #f0eafd;
+        --adv-s: #bba9ee;
+        --adv-t: #6d3fd0;
+        --llm-f: #fde9ed;
+        --llm-s: #efa3b2;
+        --llm-t: #be1f46;
+        --tools-f: #e1f6f8;
+        --tools-s: #7ccdd8;
+        --tools-t: #0b7285;
+        --data-f: #edf0f4;
+        --data-s: #b9c2cd;
+        --data-t: #3f4d5c;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --bg: #0e141b;
+          --fg: #e7edf3;
+          --muted: #98a8b6;
+          --node: #1a2430;
+          --line: #2a3644;
+          --req: #6ea0ff;
+          --tool: #3cc9bb;
+          --res: #4ade80;
+          --evt: #f5b04a;
+          --client-f: #13223d;
+          --client-s: #2f4f8f;
+          --client-t: #8db3ff;
+          --edge-f: #2c2411;
+          --edge-s: #8a6b24;
+          --edge-t: #f0c566;
+          --svc-f: #10281e;
+          --svc-s: #2b7a55;
+          --svc-t: #6fd6a0;
+          --adv-f: #211a3b;
+          --adv-s: #5a4aa3;
+          --adv-t: #b9a5ff;
+          --llm-f: #33141b;
+          --llm-s: #9a3a50;
+          --llm-t: #ff9fb3;
+          --tools-f: #0e2c30;
+          --tools-s: #237b86;
+          --tools-t: #6fd6e3;
+          --data-f: #1a212a;
+          --data-s: #47525f;
+          --data-t: #aab6c3;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme="dark"] {
+        --bg: #0e141b;
+        --fg: #e7edf3;
+        --muted: #98a8b6;
+        --node: #1a2430;
+        --line: #2a3644;
+        --req: #6ea0ff;
+        --tool: #3cc9bb;
+        --res: #4ade80;
+        --evt: #f5b04a;
+        --client-f: #13223d;
+        --client-s: #2f4f8f;
+        --client-t: #8db3ff;
+        --edge-f: #2c2411;
+        --edge-s: #8a6b24;
+        --edge-t: #f0c566;
+        --svc-f: #10281e;
+        --svc-s: #2b7a55;
+        --svc-t: #6fd6a0;
+        --adv-f: #211a3b;
+        --adv-s: #5a4aa3;
+        --adv-t: #b9a5ff;
+        --llm-f: #33141b;
+        --llm-s: #9a3a50;
+        --llm-t: #ff9fb3;
+        --tools-f: #0e2c30;
+        --tools-s: #237b86;
+        --tools-t: #6fd6e3;
+        --data-f: #1a212a;
+        --data-s: #47525f;
+        --data-t: #aab6c3;
+        color-scheme: dark;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--fg);
+        font-family: var(--font-body);
+        padding-block: 28px 40px;
+        padding-left: max(16px, env(safe-area-inset-left, 0px));
+        padding-right: max(16px, env(safe-area-inset-right, 0px));
+      }
+      .wrap {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      h1 {
+        font-family: var(--font-display);
+        font-weight: 600;
+        font-size: 1.7rem;
+        margin: 0;
+        text-wrap: balance;
+        letter-spacing: -0.01em;
+      }
+      .sub {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 0.95rem;
+        max-width: 65ch;
+        line-height: 1.5;
+      }
+
+      .bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px 24px;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 20px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+      .legend li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .legend svg {
+        width: 30px;
+        height: 8px;
+        flex: none;
+      }
+      .legend line {
+        stroke-width: 2.5;
+        stroke-linecap: round;
+      }
+      button {
+        font: 500 0.85rem var(--font-body);
+        color: var(--fg);
+        background: var(--node);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 8px 16px;
+        cursor: pointer;
+      }
+      button:hover {
+        border-color: var(--muted);
+      }
+      button:focus-visible {
+        outline: 2px solid var(--req);
+        outline-offset: 2px;
+      }
+
+      figure {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .scroll {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--bg);
+      }
+      #flow {
+        display: block;
+        width: 100%;
+        min-width: 1040px;
+        height: auto;
+      }
+      figcaption {
+        color: var(--muted);
+        font-size: 0.85rem;
+        line-height: 1.5;
+        max-width: 80ch;
+      }
+
+      /* diagram styling */
+      .box {
+        stroke-width: 1.5;
+      }
+      .client .box {
+        fill: var(--client-f);
+        stroke: var(--client-s);
+      }
+      .client .gl {
+        fill: var(--client-t);
+      }
+      .client .node {
+        stroke: var(--client-s);
+      }
+      .edge .box {
+        fill: var(--edge-f);
+        stroke: var(--edge-s);
+      }
+      .edge .gl {
+        fill: var(--edge-t);
+      }
+      .edge .node {
+        stroke: var(--edge-s);
+      }
+      .svc .box {
+        fill: var(--svc-f);
+        stroke: var(--svc-s);
+      }
+      .svc .gl {
+        fill: var(--svc-t);
+      }
+      .svc .node {
+        stroke: var(--svc-s);
+      }
+      .adv .box {
+        fill: var(--adv-f);
+        stroke: var(--adv-s);
+      }
+      .adv .gl {
+        fill: var(--adv-t);
+      }
+      .adv .node {
+        stroke: var(--adv-s);
+      }
+      .llm .box {
+        fill: var(--llm-f);
+        stroke: var(--llm-s);
+      }
+      .llm .gl {
+        fill: var(--llm-t);
+      }
+      .llm .node {
+        stroke: var(--llm-s);
+      }
+      .tools .box {
+        fill: var(--tools-f);
+        stroke: var(--tools-s);
+      }
+      .tools .gl {
+        fill: var(--tools-t);
+      }
+      .tools .node {
+        stroke: var(--tools-s);
+      }
+      .data .box {
+        fill: var(--data-f);
+        stroke: var(--data-s);
+      }
+      .data .gl {
+        fill: var(--data-t);
+      }
+      .data .node {
+        stroke: var(--data-s);
+      }
+      .gl {
+        font: 600 12px var(--font-display);
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .node {
+        fill: var(--node);
+        stroke-width: 1.5;
+      }
+      .nt {
+        font: 600 13px var(--font-body);
+        fill: var(--fg);
+        text-anchor: middle;
+      }
+      .ns {
+        font: 400 10.5px var(--font-body);
+        fill: var(--muted);
+        text-anchor: middle;
+      }
+      .ns.mono {
+        font-family: var(--font-mono);
+        font-size: 10px;
+      }
+      .el {
+        font: 500 11px var(--font-body);
+        fill: var(--muted);
+        paint-order: stroke;
+        stroke: var(--bg);
+        stroke-width: 5px;
+        stroke-linejoin: round;
+      }
+
+      .flow {
+        fill: none;
+        stroke-width: 2;
+        stroke-linejoin: round;
+        stroke-dasharray: 7 7;
+        animation: dash 0.9s linear infinite;
+      }
+      .flow.bi {
+        stroke-dasharray: none;
+        animation: none;
+      }
+      .flow.req {
+        stroke: var(--req);
+      }
+      .flow.tool {
+        stroke: var(--tool);
+      }
+      .flow.res {
+        stroke: var(--res);
+      }
+      .flow.evt {
+        stroke: var(--evt);
+      }
+      @keyframes dash {
+        to {
+          stroke-dashoffset: -14;
+        }
+      }
+      .dot {
+        stroke: var(--bg);
+        stroke-width: 1.5;
+      }
+      .dot.req {
+        fill: var(--req);
+      }
+      .dot.tool {
+        fill: var(--tool);
+      }
+      .dot.res {
+        fill: var(--res);
+      }
+      .dot.evt {
+        fill: var(--evt);
+      }
+      .mk-req {
+        fill: var(--req);
+      }
+      .mk-tool {
+        fill: var(--tool);
+      }
+      .mk-res {
+        fill: var(--res);
+      }
+      .mk-evt {
+        fill: var(--evt);
+      }
+      .paused .flow {
+        animation-play-state: paused;
+      }
+      .still .dot {
+        display: none;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .flow {
+          animation: none;
+        }
+      }
+    </style>
+
+    <div class="wrap">
+      <header>
+        <h1>Praya AI Agent</h1>
+      </header>
+
+      <div class="bar">
+        <button id="toggle" type="button" aria-pressed="false">
+          Pause animation
+        </button>
+      </div>
+
+      <figure>
+        <div class="scroll">
+          <svg
+            id="flow"
+            viewBox="0 0 1340 700"
+            role="img"
+            aria-label="Request flow: the React UI sends a chat request through CORS and rate limiting to the Agent API and AI Orchestrator, which runs the guardrail, memory, tool observer and tool calling advisors against the model. Tools read GitHub, LinkedIn and the portfolio site. Tokens stream back to the UI over SSE."
+          >
+            <defs>
+              <marker
+                id="a-req"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path class="mk-req" d="M1 1 L9 5 L1 9 Z" />
+              </marker>
+              <marker
+                id="a-tool"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path class="mk-tool" d="M1 1 L9 5 L1 9 Z" />
+              </marker>
+              <marker
+                id="a-res"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path class="mk-res" d="M1 1 L9 5 L1 9 Z" />
+              </marker>
+              <marker
+                id="a-evt"
+                viewBox="0 0 10 10"
+                refX="8"
+                refY="5"
+                markerWidth="6"
+                markerHeight="6"
+                orient="auto-start-reverse"
+              >
+                <path class="mk-evt" d="M1 1 L9 5 L1 9 Z" />
+              </marker>
+            </defs>
+
+            <!-- groups and nodes -->
+            <g class="client">
+              <rect
+                class="box"
+                x="20"
+                y="150"
+                width="180"
+                height="320"
+                rx="14"
+              />
+              <text class="gl" x="36" y="176">Client</text>
+              <rect
+                class="node"
+                x="40"
+                y="200"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="110" y="222">Browser</text>
+              <text class="ns" x="110" y="238">Visitor</text>
+              <rect
+                class="node"
+                x="40"
+                y="380"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="110" y="402">React UI</text>
+              <text class="ns" x="110" y="418">SSE client</text>
+            </g>
+
+            <g class="edge">
+              <rect
+                class="box"
+                x="240"
+                y="150"
+                width="180"
+                height="320"
+                rx="14"
+              />
+              <text class="gl" x="256" y="176">Edge security</text>
+              <rect
+                class="node"
+                x="260"
+                y="200"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="330" y="222">Rate Limiter</text>
+              <text class="ns" x="330" y="238">IP + chat</text>
+              <rect
+                class="node"
+                x="260"
+                y="380"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="330" y="402">CORS Filter</text>
+              <text class="ns" x="330" y="418">strict origins</text>
+            </g>
+
+            <g class="svc">
+              <rect
+                class="box"
+                x="450"
+                y="150"
+                width="200"
+                height="410"
+                rx="14"
+              />
+              <text class="gl" x="466" y="176">Spring Boot</text>
+              <rect
+                class="node"
+                x="490"
+                y="200"
+                width="130"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="555" y="222">Agent API</text>
+              <text class="ns mono" x="555" y="238">/api/agent/chat</text>
+              <rect
+                class="node"
+                x="490"
+                y="290"
+                width="130"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="555" y="312">AI Orchestrator</text>
+              <text class="ns" x="555" y="328">reactive</text>
+              <rect
+                class="node"
+                x="490"
+                y="390"
+                width="130"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="555" y="412">Cache</text>
+              <text class="ns" x="555" y="428">agent data</text>
+              <rect
+                class="node"
+                x="490"
+                y="480"
+                width="130"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="555" y="502">SSE Stream</text>
+              <text class="ns" x="555" y="518">event sinks</text>
+            </g>
+
+            <g class="adv">
+              <rect
+                class="box"
+                x="690"
+                y="150"
+                width="180"
+                height="395"
+                rx="14"
+              />
+              <text class="gl" x="706" y="176">Advisor chain</text>
+              <rect
+                class="node"
+                x="710"
+                y="200"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="780" y="222">Guardrail</text>
+              <text class="ns" x="780" y="238">input + output</text>
+              <rect
+                class="node"
+                x="710"
+                y="290"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="780" y="312">Chat Memory</text>
+              <text class="ns" x="780" y="328">message window</text>
+              <rect
+                class="node"
+                x="710"
+                y="380"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="780" y="402">Tool Observer</text>
+              <text class="ns" x="780" y="418">emits events</text>
+              <rect
+                class="node"
+                x="710"
+                y="470"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="780" y="492">Tool Calling</text>
+              <text class="ns" x="780" y="508">tool loop</text>
+            </g>
+
+            <g class="llm">
+              <rect
+                class="box"
+                x="690"
+                y="575"
+                width="180"
+                height="100"
+                rx="14"
+              />
+              <text class="gl" x="706" y="599">Model</text>
+              <rect
+                class="node"
+                x="710"
+                y="612"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="780" y="634">OpenAI</text>
+              <text class="ns" x="780" y="650">Nvidia Nemotron</text>
+            </g>
+
+            <g class="tools">
+              <rect
+                class="box"
+                x="910"
+                y="150"
+                width="180"
+                height="395"
+                rx="14"
+              />
+              <text class="gl" x="926" y="176">Tools</text>
+              <rect
+                class="node"
+                x="930"
+                y="196"
+                width="140"
+                height="46"
+                rx="10"
+              />
+              <text class="nt" x="1000" y="224">Profile</text>
+              <rect
+                class="node"
+                x="930"
+                y="265"
+                width="140"
+                height="46"
+                rx="10"
+              />
+              <text class="nt" x="1000" y="293">Blogs</text>
+              <rect
+                class="node"
+                x="930"
+                y="334"
+                width="140"
+                height="46"
+                rx="10"
+              />
+              <text class="nt" x="1000" y="362">Certs</text>
+              <rect
+                class="node"
+                x="930"
+                y="403"
+                width="140"
+                height="46"
+                rx="10"
+              />
+              <text class="nt" x="1000" y="431">Projects</text>
+              <rect
+                class="node"
+                x="930"
+                y="472"
+                width="140"
+                height="46"
+                rx="10"
+              />
+              <text class="nt" x="1000" y="500">Skills</text>
+            </g>
+
+            <g class="data">
+              <rect
+                class="box"
+                x="1130"
+                y="150"
+                width="180"
+                height="395"
+                rx="14"
+              />
+              <text class="gl" x="1146" y="176">Data sources</text>
+              <rect
+                class="node"
+                x="1150"
+                y="263"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="1220" y="285">Portfolio Site</text>
+              <text class="ns" x="1220" y="301">Jsoup</text>
+              <rect
+                class="node"
+                x="1150"
+                y="332"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="1220" y="354">LinkedIn</text>
+              <text class="ns" x="1220" y="370">Jsoup + auth check</text>
+              <rect
+                class="node"
+                x="1150"
+                y="435"
+                width="140"
+                height="50"
+                rx="10"
+              />
+              <text class="nt" x="1220" y="457">GitHub API</text>
+              <text class="ns" x="1220" y="473">repos and skills</text>
+            </g>
+
+            <!-- flows: data-delays are seconds into a 14s cycle -->
+            <path
+              id="p1"
+              class="flow req"
+              data-kind="req"
+              data-delays="0"
+              d="M110 250 V380"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p2"
+              class="flow req"
+              data-kind="req"
+              data-delays="0.9"
+              d="M180 405 H260"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p3"
+              class="flow req"
+              data-kind="req"
+              data-delays="1.5"
+              d="M330 380 V250"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p4"
+              class="flow req"
+              data-kind="req"
+              data-delays="2.4"
+              d="M400 225 H490"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p5"
+              class="flow req"
+              data-kind="req"
+              data-delays="3"
+              d="M555 250 V290"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p6"
+              class="flow req bi"
+              data-kind="req"
+              data-bi="1"
+              data-delays="3.5"
+              d="M555 340 V390"
+              marker-start="url(#a-req)"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p7"
+              class="flow evt"
+              data-kind="evt"
+              data-delays="3.5"
+              d="M490 315 H470 V490 H490"
+              marker-end="url(#a-evt)"
+            />
+            <path
+              id="p8"
+              class="flow req"
+              data-kind="req"
+              data-delays="3.5"
+              d="M620 315 H665 V225 H710"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p9"
+              class="flow req"
+              data-kind="req"
+              data-delays="4.8"
+              d="M780 250 V290"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p10"
+              class="flow req"
+              data-kind="req"
+              data-delays="5.3"
+              d="M780 340 V380"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p11"
+              class="flow req"
+              data-kind="req"
+              data-delays="5.8"
+              d="M780 430 V470"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p12"
+              class="flow req bi"
+              data-kind="req"
+              data-bi="1"
+              data-delays="6.3"
+              d="M780 520 V612"
+              marker-start="url(#a-req)"
+              marker-end="url(#a-req)"
+            />
+            <path
+              id="p13"
+              class="flow evt"
+              data-kind="evt"
+              data-delays="6.3"
+              d="M710 405 H665 V505 H620"
+              marker-end="url(#a-evt)"
+            />
+
+            <path
+              id="p14"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="7"
+              d="M850 495 H890 V219 H930"
+              marker-end="url(#a-tool)"
+            />
+            <path
+              id="p15"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="7"
+              d="M850 495 H890 V288 H930"
+              marker-end="url(#a-tool)"
+            />
+            <path
+              id="p16"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="7"
+              d="M850 495 H890 V357 H930"
+              marker-end="url(#a-tool)"
+            />
+            <path
+              id="p17"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="7"
+              d="M850 495 H890 V426 H930"
+              marker-end="url(#a-tool)"
+            />
+            <path
+              id="p18"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="7"
+              d="M850 495 H930"
+              marker-end="url(#a-tool)"
+            />
+
+            <path
+              id="p19"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="9.1"
+              d="M1070 288 H1150"
+              marker-end="url(#a-tool)"
+            />
+            <path
+              id="p20"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="8.7"
+              d="M1070 357 H1150"
+              marker-end="url(#a-tool)"
+            />
+            <path
+              id="p21"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="8.2"
+              d="M1070 426 H1110 V460 H1150"
+              marker-end="url(#a-tool)"
+            />
+            <path
+              id="p22"
+              class="flow tool"
+              data-kind="tool"
+              data-delays="7.7"
+              d="M1070 495 H1110 V460 H1150"
+              marker-end="url(#a-tool)"
+            />
+
+            <path
+              id="p23"
+              class="flow res"
+              data-kind="res"
+              data-delays="9.6,10,10.4"
+              d="M490 520 H110 V430"
+              marker-end="url(#a-res)"
+            />
+
+            <!-- edge labels -->
+            <text class="el" x="120" y="318">HTTPS</text>
+            <text class="el" x="220" y="397" text-anchor="middle">
+              SSE request
+            </text>
+            <text class="el" x="565" y="369">check</text>
+            <text class="el" x="790" y="566">prompt / tokens</text>
+            <text class="el" x="300" y="512" text-anchor="middle">
+              stream tokens
+            </text>
+
+            <g id="dots"></g>
+          </svg>
+        </div>
+      </figure>
+    </div>
+
+    <script>
+      (function () {
+        var NS = "http://www.w3.org/2000/svg";
+        var svg = document.getElementById("flow");
+        var layer = document.getElementById("dots");
+        var CYCLE = 14,
+          SPEED = 140;
+
+        function add(parent, tag, attrs) {
+          var el = document.createElementNS(NS, tag);
+          for (var k in attrs) el.setAttribute(k, attrs[k]);
+          parent.appendChild(el);
+          return el;
+        }
+
+        function dot(path, kind, start, travel, reverse) {
+          var a = Math.max(start / CYCLE, 0.0001);
+          var b = Math.min((start + travel) / CYCLE, 0.9999);
+          var c = add(layer, "circle", {
+            r: 4.5,
+            cx: 0,
+            cy: 0,
+            opacity: 0,
+            class: "dot " + kind,
+          });
+          var m = add(c, "animateMotion", {
+            dur: CYCLE + "s",
+            repeatCount: "indefinite",
+            calcMode: "linear",
+            keyPoints: reverse ? "1;1;0;0" : "0;0;1;1",
+            keyTimes: "0;" + a + ";" + b + ";1",
+          });
+          add(m, "mpath", { href: "#" + path.id });
+          add(c, "animate", {
+            attributeName: "opacity",
+            values: "0;1;0",
+            keyTimes: "0;" + a + ";" + b,
+            calcMode: "discrete",
+            dur: CYCLE + "s",
+            repeatCount: "indefinite",
+          });
+        }
+
+        document.querySelectorAll("path.flow").forEach(function (p) {
+          var travel = Math.max(0.5, p.getTotalLength() / SPEED);
+          var kind = p.getAttribute("data-kind");
+          p.getAttribute("data-delays")
+            .split(",")
+            .forEach(function (s) {
+              var d = parseFloat(s);
+              dot(p, kind, d, travel, false);
+              if (p.getAttribute("data-bi") === "1")
+                dot(p, kind, d + travel, travel, true);
+            });
+        });
+
+        var btn = document.getElementById("toggle");
+        var paused = false;
+        function setPaused(v) {
+          paused = v;
+          document.body.classList.toggle("paused", v);
+          document.body.classList.remove("still");
+          if (v) svg.pauseAnimations();
+          else svg.unpauseAnimations();
+          btn.textContent = v ? "Play animation" : "Pause animation";
+          btn.setAttribute("aria-pressed", v ? "true" : "false");
+        }
+        btn.addEventListener("click", function () {
+          setPaused(!paused);
+        });
+
+        if (
+          window.matchMedia &&
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        ) {
+          setPaused(true);
+          document.body.classList.add("still");
+        }
+      })();
+    </script>
+  </body>
+</html>
